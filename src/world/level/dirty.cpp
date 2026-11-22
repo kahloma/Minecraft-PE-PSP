@@ -3,6 +3,7 @@
 #include "world/level/chunk/chunk.h"
 #include "world/level/tile/tile.h"
 #include <pspkernel.h>
+#include "adhoc_bridge.h"
 
 #define PLAYER_EDIT_QUEUE_CAP 128
 
@@ -113,6 +114,9 @@ bool worldSetBlockAndData(World* w, int x, int y, int z, unsigned char id, unsig
         if (lightEmit(was) > 0 && lightEmit(id) == 0) worldRemoveBlockLight(w, x, y, z);
     }
     if (id && Tile::isEntityTile[id]) Tile::tiles[id]->onPlace(w, x, y, z);
+        if (!g_adhoc.applyingRemote && !w->simTick) {
+        g_adhoc.sendBlock(x, y, z, id, data);
+    }
     return true;
 }
 

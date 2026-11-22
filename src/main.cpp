@@ -599,7 +599,13 @@ int main(int argc, char* argv[]) {
                 }
                 NetPacket pkt;
                 while (g_adhoc.poll(pkt)) {
-                    (void)pkt;
+                    if (pkt.type == 2 && g_level.w) {
+                        g_adhoc.applyingRemote = true;
+                        worldSetBlockAndData(g_level.w, pkt.bx, pkt.by, pkt.bz,
+                                             (unsigned char)pkt.blockId, (unsigned char)pkt.meta);
+                        worldRebuildAroundNow(g_level.w, pkt.bx, pkt.by, pkt.bz);
+                        g_adhoc.applyingRemote = false;
+                    }
                 }
             }
         }
