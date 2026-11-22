@@ -1925,7 +1925,7 @@ void gameRender(MenuState& s) {
     sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);
     profBegin(PROF_ENTITY);
     EntityRenderDispatcher::getInstance()->renderAll(&g_level, a);
-    if (g_adhoc.hasPeer && g_level.player) {
+        if (g_adhoc.hasPeer && g_level.player) {
         if (g_adhoc.lerpT < 1.0f) {
             g_adhoc.lerpT += 0.34f;
             if (g_adhoc.lerpT > 1.0f) g_adhoc.lerpT = 1.0f;
@@ -1934,23 +1934,52 @@ void gameRender(MenuState& s) {
         float ry = g_adhoc.prevY + (g_adhoc.remoteY - g_adhoc.prevY) * g_adhoc.lerpT;
         float rz = g_adhoc.prevZ + (g_adhoc.remoteZ - g_adhoc.prevZ) * g_adhoc.lerpT;
 
-        float ox = g_level.player->x, oy = g_level.player->y, oz = g_level.player->z;
-        float oxo = g_level.player->xo, oyo = g_level.player->yo, ozo = g_level.player->zo;
-        float oyaw = g_level.player->yRot, opitch = g_level.player->xRot;
-        float oyawo = g_level.player->yRotO, opitcho = g_level.player->xRotO;
+        extern float g_attackAnim, g_oAttackAnim;
+        LocalPlayer* p = g_level.player;
 
-        g_level.player->x = g_level.player->xo = rx;
-        g_level.player->y = g_level.player->yo = ry;
-        g_level.player->z = g_level.player->zo = rz;
-        g_level.player->yRot = g_level.player->yRotO = g_adhoc.remoteYaw;
-        g_level.player->xRot = g_level.player->xRotO = g_adhoc.remotePitch;
+        float ox = p->x, oy = p->y, oz = p->z;
+        float oxo = p->xo, oyo = p->yo, ozo = p->zo;
+        float oyaw = p->yRot, opitch = p->xRot;
+        float oyawo = p->yRotO, opitcho = p->xRotO;
+        float obody = p->yBodyRot, obodyo = p->yBodyRotO;
+        float owp = p->walkAnimPos, ows = p->walkAnimSpeed, owso = p->walkAnimSpeedO;
+        float oatk = g_attackAnim, oatko = g_oAttackAnim;
+        bool osneak = p->sneaking;
+
+        ItemInstance* sel = p->inventory ? p->inventory->getSelected() : 0;
+        short oId = sel ? sel->id : 0;
+        unsigned char oData = sel ? sel->data : 0;
+        int oCount = sel ? sel->count : 0;
+
+        p->x = p->xo = rx;
+        p->y = p->yo = ry;
+        p->z = p->zo = rz;
+        p->yRot = p->yRotO = g_adhoc.remoteYaw;
+        p->xRot = p->xRotO = g_adhoc.remotePitch;
+        p->yBodyRot = p->yBodyRotO = g_adhoc.remoteYaw;
+        p->walkAnimPos = g_adhoc.remoteWalkPos;
+        p->walkAnimSpeed = g_adhoc.remoteWalkSpeed;
+        p->walkAnimSpeedO = g_adhoc.remoteWalkSpeedO;
+        g_attackAnim = g_adhoc.remoteAtk;
+        g_oAttackAnim = g_adhoc.remoteAtkO;
+        p->sneaking = g_adhoc.remoteSneaking;
+        if (sel) {
+            sel->id = g_adhoc.remoteHeldId;
+            sel->data = g_adhoc.remoteHeldData;
+            sel->count = (g_adhoc.remoteHeldId > 0) ? 1 : 0;
+        }
 
         playerModelRender(a);
 
-        g_level.player->x = ox; g_level.player->y = oy; g_level.player->z = oz;
-        g_level.player->xo = oxo; g_level.player->yo = oyo; g_level.player->zo = ozo;
-        g_level.player->yRot = oyaw; g_level.player->xRot = opitch;
-        g_level.player->yRotO = oyawo; g_level.player->xRotO = opitcho;
+        p->x = ox; p->y = oy; p->z = oz;
+        p->xo = oxo; p->yo = oyo; p->zo = ozo;
+        p->yRot = oyaw; p->xRot = opitch;
+        p->yRotO = oyawo; p->xRotO = opitcho;
+        p->yBodyRot = obody; p->yBodyRotO = obodyo;
+        p->walkAnimPos = owp; p->walkAnimSpeed = ows; p->walkAnimSpeedO = owso;
+        g_attackAnim = oatk; g_oAttackAnim = oatko;
+        p->sneaking = osneak;
+        if (sel) { sel->id = oId; sel->data = oData; sel->count = oCount; }
     }
     renderAllTileEntities(&g_level, a);
 

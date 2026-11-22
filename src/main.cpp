@@ -595,8 +595,16 @@ int main(int argc, char* argv[]) {
                 static int s_netTick = 0;
                 if (++s_netTick >= 3) {
                     s_netTick = 0;
-                    g_adhoc.sendPos(g_level.player->x, g_level.player->y, g_level.player->z,
-                                    g_level.player->yRot, g_level.player->xRot);
+                    extern float g_attackAnim;
+                    short hid = 0; unsigned char hdata = 0;
+                    if (g_level.player->inventory) {
+                        ItemInstance* sel = g_level.player->inventory->getSelected();
+                        if (sel && !sel->isNull()) { hid = sel->id; hdata = sel->data; }
+                    }
+                    g_adhoc.sendPlayer(g_level.player->x, g_level.player->y, g_level.player->z,
+                                       g_level.player->yRot, g_level.player->xRot,
+                                       g_level.player->walkAnimPos, g_level.player->walkAnimSpeed,
+                                       g_attackAnim, g_level.player->sneaking, hid, hdata);
                 }
                 NetPacket pkt;
                 while (g_adhoc.poll(pkt)) {

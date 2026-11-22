@@ -13,6 +13,10 @@ struct NetPacket {
     uint8_t type; // 1 = PlayerPos, 2 = BlockSet
     uint8_t senderMac[6];
     float x, y, z, yaw, pitch;
+    float walkPos, walkSpeed, atkAnim;
+    uint8_t sneaking;
+    short heldId;
+    unsigned char heldData;
     int bx, by, bz, blockId, meta;
 };
 
@@ -26,9 +30,15 @@ public:
     bool connected = false;
     bool hasPeer = false;
     bool applyingRemote = false;
+
     float prevX = 0.0f, prevY = 64.0f, prevZ = 0.0f;
     float remoteX = 0.0f, remoteY = 64.0f, remoteZ = 0.0f;
     float remoteYaw = 0.0f, remotePitch = 0.0f;
+    float remoteWalkPos = 0.0f, remoteWalkSpeed = 0.0f, remoteWalkSpeedO = 0.0f;
+    float remoteAtk = 0.0f, remoteAtkO = 0.0f;
+    bool remoteSneaking = false;
+    short remoteHeldId = 0;
+    unsigned char remoteHeldData = 0;
     float lerpT = 1.0f;
 
     void init() {
@@ -63,13 +73,18 @@ public:
         }
     }
 
-    void sendPos(float x, float y, float z, float yaw, float pitch) {
+    void sendPlayer(float x, float y, float z, float yaw, float pitch,
+                    float walkPos, float walkSpeed, float atkAnim,
+                    bool sneaking, short heldId, unsigned char heldData) {
         if (!connected) return;
         NetPacket pkt{};
         pkt.type = 1;
         std::memcpy(pkt.senderMac, myMac.data(), 6);
         pkt.x = x; pkt.y = y; pkt.z = z;
         pkt.yaw = yaw; pkt.pitch = pitch;
+        pkt.walkPos = walkPos; pkt.walkSpeed = walkSpeed; pkt.atkAnim = atkAnim;
+        pkt.sneaking = sneaking ? 1 : 0;
+        pkt.heldId = heldId; pkt.heldData = heldData;
         std::array<uint8_t, 6> bcast = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};
         uint8_t* dst = hasPeer ? peerMac.data() : bcast.data();
         sceNetAdhocPdpSend(pdpId, dst, 0x309, &pkt, sizeof(NetPacket), 0, 1);
@@ -104,6 +119,14 @@ public:
                 }
                 remoteX = out.x; remoteY = out.y; remoteZ = out.z;
                 remoteYaw = out.yaw; remotePitch = out.pitch;
+                remoteWalkSpeedO = remoteWalkSpeed;
+                remoteWalkPos = out.walkPos;
+                remoteWalkSpeed = out.walkSpeed;
+                remoteAtkO = remoteAtk;
+                remoteAtk = out.atkAnim;
+                remoteSneaking = (out.sneaking != 0);
+                remoteHeldId = out.heldId;
+                remoteHeldData = out.heldData;
                 lerpT = 0.0f;
             }
             hasPeer = true;
