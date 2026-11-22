@@ -599,13 +599,11 @@ int main(int argc, char* argv[]) {
                 }
                 NetPacket pkt;
                 while (g_adhoc.poll(pkt)) {
-                    if (pkt.type == 2 && g_level.world) {
-                        worldSetBlockAndData(g_level.world, pkt.bx, pkt.by, pkt.bz,
-                                             (unsigned char)pkt.blockId, (unsigned char)pkt.meta);
-                    }
+                    (void)pkt;
                 }
             }
         }
+
 
 
         if (pressed && (screenBefore != SCREEN_GAME || g_optionsOpen) &&
