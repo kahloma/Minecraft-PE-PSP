@@ -10,7 +10,7 @@
 #include <cstdio>
 
 struct NetPacket {
-    uint8_t type; // 1 = PlayerPos, 2 = BlockSet
+    uint8_t type; // 1 = PlayerPos, 2 = BlockSet, 3 = WorldInfo
     uint8_t senderMac[6];
     float x, y, z, yaw, pitch;
     float walkPos, walkSpeed, atkAnim;
@@ -18,6 +18,8 @@ struct NetPacket {
     short heldId;
     unsigned char heldData;
     int bx, by, bz, blockId, meta;
+    long seed;
+    int gameMode, worldType;
 };
 
 class AdhocBridge {
@@ -30,6 +32,11 @@ public:
     bool connected = false;
     bool hasPeer = false;
     bool applyingRemote = false;
+
+    bool hasHostWorld = false;
+    long hostSeed = 0;
+    int hostMode = 1;
+    int hostType = 0;
 
     float prevX = 0.0f, prevY = 64.0f, prevZ = 0.0f;
     float remoteX = 0.0f, remoteY = 64.0f, remoteZ = 0.0f;
@@ -71,6 +78,18 @@ public:
                 }
             }
         }
+    }
+
+    void sendWorldInfo(long seed, int gameMode, int worldType) {
+        if (!connected) return;
+        NetPacket pkt{};
+        pkt.type = 3;
+        std::memcpy(pkt.senderMac, myMac.data(), 6);
+        pkt.seed = seed;
+        pkt.gameMode = gameMode;
+        pkt.worldType = worldType;
+        std::array<uint8_t, 6> bcast = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};
+        sceNetAdhocPdpSend(pdpId, bcast.data(), 0x309, &pkt, sizeof(NetPacket), 0, 1);
     }
 
     void sendPlayer(float x, float y, float z, float yaw, float pitch,
@@ -128,6 +147,11 @@ public:
                 remoteHeldId = out.heldId;
                 remoteHeldData = out.heldData;
                 lerpT = 0.0f;
+            } else if (out.type == 3) {
+                hasHostWorld = true;
+                hostSeed = out.seed;
+                hostMode = out.gameMode;
+                hostType = out.worldType;
             }
             hasPeer = true;
             return true;

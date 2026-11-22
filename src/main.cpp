@@ -584,6 +584,9 @@ int main(int argc, char* argv[]) {
         unsigned int pMenu = pressed | repeat;
         if (Screen* cur = menuScreen(s.screen)) {
 
+            NetPacket menuPkt;
+            while (g_adhoc.poll(menuPkt)) { (void)menuPkt; }
+
             cur->handleInput(s, menuFaceSwap(controlSchemeMenuAlias(pMenu)),
                              menuFaceSwap(controlSchemeMenuAlias(pad.Buttons)));
         } else {
@@ -593,6 +596,7 @@ int main(int argc, char* argv[]) {
 
             if (g_level.player) {
                 static int s_netTick = 0;
+                static int s_infoTick = 0;
                 if (++s_netTick >= 3) {
                     s_netTick = 0;
                     extern float g_attackAnim;
@@ -605,6 +609,12 @@ int main(int argc, char* argv[]) {
                                        g_level.player->yRot, g_level.player->xRot,
                                        g_level.player->walkAnimPos, g_level.player->walkAnimSpeed,
                                        g_attackAnim, g_level.player->sneaking, hid, hdata);
+                }
+                if (++s_infoTick >= 60) {
+                    s_infoTick = 0;
+                    int gm = (s.worldSelected >= 0 && s.worldSelected < s.worlds.count)
+                             ? s.worlds.gameModes[s.worldSelected] : 1;
+                    g_adhoc.sendWorldInfo(worldSeed(), gm, 0);
                 }
                 NetPacket pkt;
                 while (g_adhoc.poll(pkt)) {
