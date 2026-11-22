@@ -25,9 +25,10 @@ public:
     bool connected = false;
     bool hasPeer = false;
     bool applyingRemote = false;
-
+    float prevX = 0.0f, prevY = 64.0f, prevZ = 0.0f;
     float remoteX = 0.0f, remoteY = 64.0f, remoteZ = 0.0f;
     float remoteYaw = 0.0f, remotePitch = 0.0f;
+    float lerpT = 1.0f;
 
     void init() {
         int r1 = sceUtilityLoadNetModule(PSP_NET_MODULE_COMMON);
@@ -87,10 +88,13 @@ public:
         int len = sizeof(NetPacket);
         int ret = sceNetAdhocPdpRecv(pdpId, peerMac.data(), &port, &out, &len, 0, 1);
         if (ret == 0 && len == sizeof(NetPacket)) {
+            if (peerMac == myMac) return false;
             hasPeer = true;
             if (out.type == 1) {
+                prevX = remoteX; prevY = remoteY; prevZ = remoteZ;
                 remoteX = out.x; remoteY = out.y; remoteZ = out.z;
                 remoteYaw = out.yaw; remotePitch = out.pitch;
+                lerpT = 0.0f;
             }
             return true;
         }
