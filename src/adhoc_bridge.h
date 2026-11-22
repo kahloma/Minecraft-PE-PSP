@@ -17,34 +17,43 @@ struct NetPacket {
 class AdhocBridge {
 public:
     int pdpId = -1;
-    uint8_t myMac[6] = {0};
-    uint8_t peerMac[6] = {0};
+    int lastState = -1;
+    int lastErr = 0;
+    uint8_t myMac = {0};
+    uint8_t peerMac = {0};
     bool connected = false;
     bool hasPeer = false;
     float remoteX = 0.0f, remoteY = 64.0f, remoteZ = 0.0f;
     float remoteYaw = 0.0f, remotePitch = 0.0f;
 
     void init() {
-        sceUtilityLoadNetModule(PSP_NET_MODULE_COMMON);
-        sceUtilityLoadNetModule(PSP_NET_MODULE_ADHOC);
-        sceNetInit(0x20000, 0x20, 0x1000, 0x20, 0x1000);
-        sceNetAdhocInit();
+        int r1 = sceUtilityLoadNetModule(PSP_NET_MODULE_COMMON);
+        int r2 = sceUtilityLoadNetModule(PSP_NET_MODULE_ADHOC);
+        int r3 = sceNetInit(0x20000, 0x20, 0x1000, 0x20, 0x1000);
+        int r4 = sceNetAdhocInit();
 
         struct productStruct product;
-        std::strcpy(product.product, "ULUS99999");
-        product.unknown = 0;
-        sceNetAdhocctlInit(0x2000, 0x20, &product);
-        sceNetAdhocctlConnect("MCPEPSP1");
+        std::memset(&product, 0, sizeof(product));
+        std::memcpy(product.product, "ULUS99999", 9);
+        int r5 = sceNetAdhocctlInit(0x2000, 0x20, &product);
+        lastErr = sceNetAdhocctlConnect("MCPEPSP1");
+        if (lastErr == 0) lastErr = r1 ? r1 : (r2 ? r2 : (r3 ? r3 : (r4 ? r4 : r5)));
         sceNetGetLocalEtherAddr(myMac);
     }
 
     void update() {
         if (!connected) {
-            int state = 0;
-            sceNetAdhocctlGetState(&state);
-            if (state == 1) {
+            sceNetAdhocctlGetState(&lastState);
+            if (lastState == 1) {
                 pdpId = sceNetAdhocPdpCreate(myMac, 0x309, 0x4000, 0);
                 connected = (pdpId >= 0);
+                if (!connected) lastErr = pdpId;
+            } else {
+                static int retry = 0;
+                if (++retry >= 120) {
+                    retry = 0;
+                    lastErr = sceNetAdhocctlConnect("MCPEPSP1");
+                }
             }
         }
     }
@@ -55,7 +64,7 @@ public:
         pkt.type = 1;
         pkt.x = x; pkt.y = y; pkt.z = z;
         pkt.yaw = yaw; pkt.pitch = pitch;
-        uint8_t bcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+        uint8_t bcast = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
         sceNetAdhocPdpSend(pdpId, bcast, 0x309, &pkt, sizeof(NetPacket), 0, 1);
     }
 
@@ -65,7 +74,7 @@ public:
         pkt.type = 2;
         pkt.bx = bx; pkt.by = by; pkt.bz = bz;
         pkt.blockId = blockId; pkt.meta = meta;
-        uint8_t bcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+        uint8_t bcast = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
         sceNetAdhocPdpSend(pdpId, bcast, 0x309, &pkt, sizeof(NetPacket), 0, 1);
     }
 

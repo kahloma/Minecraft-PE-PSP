@@ -652,7 +652,8 @@ int main(int argc, char* argv[]) {
                 {
                     char netBuf[64];
                     if (!g_adhoc.connected) {
-                        std::snprintf(netBuf, sizeof(netBuf), "ADHOC: SEARCHING...");
+                        std::snprintf(netBuf, sizeof(netBuf), "ADHOC: ST=%d ERR=0x%X",
+                                      g_adhoc.lastState, (unsigned int)g_adhoc.lastErr);
                     } else if (!g_adhoc.hasPeer) {
                         std::snprintf(netBuf, sizeof(netBuf), "ADHOC: READY (NO PEER)");
                     } else {
