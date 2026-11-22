@@ -1927,7 +1927,7 @@ void gameRender(MenuState& s) {
     EntityRenderDispatcher::getInstance()->renderAll(&g_level, a);
     if (g_adhoc.hasPeer && g_level.player) {
         if (g_adhoc.lerpT < 1.0f) {
-            g_adhoc.lerpT += 0.34f; // smooth 3-frame (20Hz -> 60Hz) interpolation
+            g_adhoc.lerpT += 0.34f;
             if (g_adhoc.lerpT > 1.0f) g_adhoc.lerpT = 1.0f;
         }
         float rx = g_adhoc.prevX + (g_adhoc.remoteX - g_adhoc.prevX) * g_adhoc.lerpT;
@@ -1935,20 +1935,20 @@ void gameRender(MenuState& s) {
         float rz = g_adhoc.prevZ + (g_adhoc.remoteZ - g_adhoc.prevZ) * g_adhoc.lerpT;
 
         float ox = g_level.player->x, oy = g_level.player->y, oz = g_level.player->z;
-        float oxo = g_level.player->xOld, oyo = g_level.player->yOld, ozo = g_level.player->zOld;
+        float oxo = g_level.player->xo, oyo = g_level.player->yo, ozo = g_level.player->zo;
         float oyaw = g_level.player->yRot, opitch = g_level.player->xRot;
         float oyawo = g_level.player->yRotO, opitcho = g_level.player->xRotO;
 
-        g_level.player->x = g_level.player->xOld = rx;
-        g_level.player->y = g_level.player->yOld = ry;
-        g_level.player->z = g_level.player->zOld = rz;
+        g_level.player->x = g_level.player->xo = rx;
+        g_level.player->y = g_level.player->yo = ry;
+        g_level.player->z = g_level.player->zo = rz;
         g_level.player->yRot = g_level.player->yRotO = g_adhoc.remoteYaw;
         g_level.player->xRot = g_level.player->xRotO = g_adhoc.remotePitch;
 
         playerModelRender(a);
 
         g_level.player->x = ox; g_level.player->y = oy; g_level.player->z = oz;
-        g_level.player->xOld = oxo; g_level.player->yOld = oyo; g_level.player->zOld = ozo;
+        g_level.player->xo = oxo; g_level.player->yo = oyo; g_level.player->zo = ozo;
         g_level.player->yRot = oyaw; g_level.player->xRot = opitch;
         g_level.player->yRotO = oyawo; g_level.player->xRotO = opitcho;
     }
