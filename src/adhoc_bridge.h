@@ -23,7 +23,6 @@ public:
     std::array<uint8_t, 6> myMac{};
     std::array<uint8_t, 6> peerMac{};
     bool connected = false;
-    bool connected = false;
     bool hasPeer = false;
     bool applyingRemote = false;
 
