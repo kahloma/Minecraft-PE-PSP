@@ -5,6 +5,7 @@
 #include <pspnet.h>
 #include <pspnet_adhoc.h>
 #include <pspnet_adhocctl.h>
+#include <array>
 #include <cstring>
 #include <cstdio>
 
@@ -19,8 +20,8 @@ public:
     int pdpId = -1;
     int lastState = -1;
     int lastErr = 0;
-    uint8_t myMac = {0};
-    uint8_t peerMac = {0};
+    std::array<uint8_t, 6> myMac{};
+    std::array<uint8_t, 6> peerMac{};
     bool connected = false;
     bool hasPeer = false;
     float remoteX = 0.0f, remoteY = 64.0f, remoteZ = 0.0f;
@@ -38,14 +39,14 @@ public:
         int r5 = sceNetAdhocctlInit(0x2000, 0x20, &product);
         lastErr = sceNetAdhocctlConnect("MCPEPSP1");
         if (lastErr == 0) lastErr = r1 ? r1 : (r2 ? r2 : (r3 ? r3 : (r4 ? r4 : r5)));
-        sceNetGetLocalEtherAddr(myMac);
+        sceNetGetLocalEtherAddr(myMac.data());
     }
 
     void update() {
         if (!connected) {
             sceNetAdhocctlGetState(&lastState);
             if (lastState == 1) {
-                pdpId = sceNetAdhocPdpCreate(myMac, 0x309, 0x4000, 0);
+                pdpId = sceNetAdhocPdpCreate(myMac.data(), 0x309, 0x4000, 0);
                 connected = (pdpId >= 0);
                 if (!connected) lastErr = pdpId;
             } else {
@@ -64,8 +65,8 @@ public:
         pkt.type = 1;
         pkt.x = x; pkt.y = y; pkt.z = z;
         pkt.yaw = yaw; pkt.pitch = pitch;
-        uint8_t bcast = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-        sceNetAdhocPdpSend(pdpId, bcast, 0x309, &pkt, sizeof(NetPacket), 0, 1);
+        std::array<uint8_t, 6> bcast = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};
+        sceNetAdhocPdpSend(pdpId, bcast.data(), 0x309, &pkt, sizeof(NetPacket), 0, 1);
     }
 
     void sendBlock(int bx, int by, int bz, int blockId, int meta = 0) {
@@ -74,15 +75,15 @@ public:
         pkt.type = 2;
         pkt.bx = bx; pkt.by = by; pkt.bz = bz;
         pkt.blockId = blockId; pkt.meta = meta;
-        uint8_t bcast = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-        sceNetAdhocPdpSend(pdpId, bcast, 0x309, &pkt, sizeof(NetPacket), 0, 1);
+        std::array<uint8_t, 6> bcast = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};
+        sceNetAdhocPdpSend(pdpId, bcast.data(), 0x309, &pkt, sizeof(NetPacket), 0, 1);
     }
 
     bool poll(NetPacket& out) {
         if (!connected) return false;
         uint16_t port = 0;
         int len = sizeof(NetPacket);
-        int ret = sceNetAdhocPdpRecv(pdpId, peerMac, &port, &out, &len, 0, 1);
+        int ret = sceNetAdhocPdpRecv(pdpId, peerMac.data(), &port, &out, &len, 0, 1);
         if (ret == 0 && len == sizeof(NetPacket)) {
             hasPeer = true;
             if (out.type == 1) {
