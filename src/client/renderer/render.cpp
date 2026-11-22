@@ -1,3 +1,4 @@
+#include "adhoc_bridge.h"
 #include "client/skin/skin_pack.h"
 #include "client/renderer/render.h"
 #include "platform/dcache.h"
@@ -1924,6 +1925,21 @@ void gameRender(MenuState& s) {
     sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);
     profBegin(PROF_ENTITY);
     EntityRenderDispatcher::getInstance()->renderAll(&g_level, a);
+        if (g_adhoc.hasPeer && g_level.player) {
+        float ox = g_level.player->x, oy = g_level.player->y, oz = g_level.player->z;
+        float oyaw = g_level.player->yRot, opitch = g_level.player->xRot;
+        g_level.player->x = g_adhoc.remoteX;
+        g_level.player->y = g_adhoc.remoteY;
+        g_level.player->z = g_adhoc.remoteZ;
+        g_level.player->yRot = g_adhoc.remoteYaw;
+        g_level.player->xRot = g_adhoc.remotePitch;
+        playerModelRender(a);
+        g_level.player->x = ox;
+        g_level.player->y = oy;
+        g_level.player->z = oz;
+        g_level.player->yRot = oyaw;
+        g_level.player->xRot = opitch;
+    }
     renderAllTileEntities(&g_level, a);
 
     renderMiningCrack(px0, py0, pz0);

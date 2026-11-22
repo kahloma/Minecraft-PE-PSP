@@ -595,7 +595,8 @@ int main(int argc, char* argv[]) {
                 static int s_netTick = 0;
                 if (++s_netTick >= 3) {
                     s_netTick = 0;
-                    g_adhoc.sendPos(g_level.player->x, g_level.player->y, g_level.player->z, 0.0f, 0.0f);
+                    g_adhoc.sendPos(g_level.player->x, g_level.player->y, g_level.player->z,
+                                    g_level.player->yRot, g_level.player->xRot);
                 }
                 NetPacket pkt;
                 while (g_adhoc.poll(pkt)) {
