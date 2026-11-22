@@ -43,6 +43,8 @@
 
 #include <pspgu.h>
 #include <pspgum.h>
+#include "adhoc_bridge.h"
+AdhocBridge g_adhoc;
 
 SceInt64 g_timeBootUs = 0;
 float    g_gameSeconds = 0.0f;
@@ -349,6 +351,7 @@ int main(int argc, char* argv[]) {
     sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
 
     guInit();
+    g_adhoc.init();
 
     static const float INTRO_WHITE    = 0.9f;
     static const float INTRO_FADE_IN  = 0.7f;
@@ -474,6 +477,7 @@ int main(int argc, char* argv[]) {
             soundPowerResume();
             g_powerStickWait = 1;
             scePowerTick(0);
+            
         }
 
         if (g_powerStickWait && g_powerStickWait++ < 300) {
@@ -491,6 +495,7 @@ int main(int argc, char* argv[]) {
         }
 
         scePowerTick(0);
+        g_adhoc.update();
 
         SceCtrlData pad;
         sceCtrlPeekBufferPositive(&pad, 1);
@@ -585,7 +590,23 @@ int main(int argc, char* argv[]) {
 
             gameUpdate(s, inGameMenu ? pMenu
                        : (pressed | (repeat & (PSP_CTRL_LEFT | PSP_CTRL_RIGHT))), pad);
+
+            if (g_level.player) {
+                static int s_netTick = 0;
+                if (++s_netTick >= 3) {
+                    s_netTick = 0;
+                    g_adhoc.sendPos(g_level.player->x, g_level.player->y, g_level.player->z, 0.0f, 0.0f);
+                }
+                NetPacket pkt;
+                while (g_adhoc.poll(pkt)) {
+                    if (pkt.type == 2 && g_level.world) {
+                        worldSetBlockAndData(g_level.world, pkt.bx, pkt.by, pkt.bz,
+                                             (unsigned char)pkt.blockId, (unsigned char)pkt.meta);
+                    }
+                }
+            }
         }
+
 
         if (pressed && (screenBefore != SCREEN_GAME || g_optionsOpen) &&
             (!navOnly || menuSelectionSig(s) != sigBefore))
@@ -630,7 +651,19 @@ int main(int argc, char* argv[]) {
                     fontDrawTextShadow(&s.font, 10, ty, fpsBuf, 0xFFE0E0E0u, 1.0f);
                     ty += 12.0f;
                 }
-
+                {
+                    char netBuf[64];
+                    if (!g_adhoc.connected) {
+                        std::snprintf(netBuf, sizeof(netBuf), "ADHOC: SEARCHING...");
+                    } else if (!g_adhoc.hasPeer) {
+                        std::snprintf(netBuf, sizeof(netBuf), "ADHOC: READY (NO PEER)");
+                    } else {
+                        std::snprintf(netBuf, sizeof(netBuf), "PEER: %.1f, %.1f, %.1f",
+                                      g_adhoc.remoteX, g_adhoc.remoteY, g_adhoc.remoteZ);
+                    }
+                    fontDrawTextShadow(&s.font, 10, ty, netBuf, 0xFF55FF55u, 1.0f);
+                    ty += 12.0f;
+                }
                 {
 #if MCPSP_DIAG
 

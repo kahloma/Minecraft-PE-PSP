@@ -241,7 +241,7 @@ ASFLAGS = $(CFLAGS)
 
 LIBDIR =
 LDFLAGS =
-LIBS = -lpspgum -lpspgu -lpspge -lpspfpu -lpspdisplay -lpspctrl -lpsppower -lpspaudio -lpspmp3 -lpsputility -lpng -lz -lm -lstdc++
+LIBS = -lpspgum -lpspgu -lpspge -lpspfpu -lpspdisplay -lpspctrl -lpsppower -lpspaudio -lpspmp3 -lpspnet_adhoc -lpspnet_adhocctl -lpspnet_adhocmatching -lpspnet -lpspnet_apctl -lpsputility -lpng -lz -lm -lstdc++
 
 EXTRA_TARGETS = EBOOT.PBP
 
