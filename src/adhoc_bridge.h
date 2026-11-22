@@ -11,6 +11,7 @@
 
 struct NetPacket {
     uint8_t type; // 1 = PlayerPos, 2 = BlockSet
+    uint8_t senderMac[6];
     float x, y, z, yaw, pitch;
     int bx, by, bz, blockId, meta;
 };
@@ -66,36 +67,46 @@ public:
         if (!connected) return;
         NetPacket pkt{};
         pkt.type = 1;
+        std::memcpy(pkt.senderMac, myMac.data(), 6);
         pkt.x = x; pkt.y = y; pkt.z = z;
         pkt.yaw = yaw; pkt.pitch = pitch;
         std::array<uint8_t, 6> bcast = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};
-        sceNetAdhocPdpSend(pdpId, bcast.data(), 0x309, &pkt, sizeof(NetPacket), 0, 1);
+        uint8_t* dst = hasPeer ? peerMac.data() : bcast.data();
+        sceNetAdhocPdpSend(pdpId, dst, 0x309, &pkt, sizeof(NetPacket), 0, 1);
     }
 
     void sendBlock(int bx, int by, int bz, int blockId, int meta = 0) {
         if (!connected) return;
         NetPacket pkt{};
         pkt.type = 2;
+        std::memcpy(pkt.senderMac, myMac.data(), 6);
         pkt.bx = bx; pkt.by = by; pkt.bz = bz;
         pkt.blockId = blockId; pkt.meta = meta;
         std::array<uint8_t, 6> bcast = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};
-        sceNetAdhocPdpSend(pdpId, bcast.data(), 0x309, &pkt, sizeof(NetPacket), 0, 1);
+        uint8_t* dst = hasPeer ? peerMac.data() : bcast.data();
+        sceNetAdhocPdpSend(pdpId, dst, 0x309, &pkt, sizeof(NetPacket), 0, 1);
     }
 
     bool poll(NetPacket& out) {
         if (!connected) return false;
         uint16_t port = 0;
         int len = sizeof(NetPacket);
-        int ret = sceNetAdhocPdpRecv(pdpId, peerMac.data(), &port, &out, &len, 0, 1);
+        std::array<uint8_t, 6> srcMac{};
+        int ret = sceNetAdhocPdpRecv(pdpId, srcMac.data(), &port, &out, &len, 0, 1);
         if (ret == 0 && len == sizeof(NetPacket)) {
-            if (peerMac == myMac) return false;
-            hasPeer = true;
+            if (std::memcmp(out.senderMac, myMac.data(), 6) == 0) return false;
+            peerMac = srcMac;
             if (out.type == 1) {
-                prevX = remoteX; prevY = remoteY; prevZ = remoteZ;
+                if (!hasPeer) {
+                    prevX = out.x; prevY = out.y; prevZ = out.z;
+                } else {
+                    prevX = remoteX; prevY = remoteY; prevZ = remoteZ;
+                }
                 remoteX = out.x; remoteY = out.y; remoteZ = out.z;
                 remoteYaw = out.yaw; remotePitch = out.pitch;
                 lerpT = 0.0f;
             }
+            hasPeer = true;
             return true;
         }
         return false;
