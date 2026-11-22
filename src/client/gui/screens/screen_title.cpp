@@ -106,7 +106,11 @@ void TitleScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int h
         if (pressed & PSP_CTRL_RIGHT) selected = BTN_SKINS;
         if (pressed & PSP_CTRL_LEFT)  selected = (selected == BTN_SKINS) ? BTN_PLAY : selected;
     }
-
+    if (pressed & PSP_CTRL_TRIANGLE) {
+        joinListReset(s);
+        screen = SCREEN_JOIN;
+        statusMsg[0] = '\0';
+    }
     if (pressed & PSP_CTRL_CROSS) {
         if (selected == BTN_PLAY) {
             screen = SCREEN_WORLDS;
