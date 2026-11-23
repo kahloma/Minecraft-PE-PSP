@@ -605,7 +605,7 @@ int main(int argc, char* argv[]) {
             gameUpdate(s, inGameMenu ? pMenu
                        : (pressed | (repeat & (PSP_CTRL_LEFT | PSP_CTRL_RIGHT))), pad);
 
-            if (g_level.player) {
+            if (g_level.player && !gameProgressScreenUp()) {
                 g_level.isClientSide = false;
                 static int s_netTick = 0;
                 static int s_infoTick = 0;
