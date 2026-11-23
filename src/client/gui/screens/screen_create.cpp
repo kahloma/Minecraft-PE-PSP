@@ -12,6 +12,7 @@
 #include "world/level/levelgen/level_source.h"
 #include "world/level/levelgen/gen_features.h"
 #include "world/level/storage/worldlist.h"
+#include "adhoc_bridge.h"
 
 struct CreateScreen : Screen {
     void renderContent(MenuState& s);
