@@ -618,11 +618,23 @@ int main(int argc, char* argv[]) {
                                        g_level.player->walkAnimPos, g_level.player->walkAnimSpeed,
                                        g_attackAnim, g_level.player->sneaking, hid, hdata);
                 }
+                if (g_adhoc.hostClosedNotice) {
+                    g_adhoc.hostClosedNotice = false;
+                    quitToMenuNoSave(s);
+                    std::snprintf(s.statusMsg, sizeof(s.statusMsg), "Host closed the world");
+                }
+                g_level.isClientSide = g_adhoc.isJoiner;
                 if (++s_infoTick >= 60) {
                     s_infoTick = 0;
-                    int gm = (s.worldSelected >= 0 && s.worldSelected < s.worlds.count)
-                             ? s.worlds.gameModes[s.worldSelected] : 1;
-                    g_adhoc.sendWorldInfo(worldSeed(), gm, 0, skinOptionGet());
+                    if (g_adhoc.isHosting) {
+                        int gm = (s.worldSelected >= 0 && s.worldSelected < s.worlds.count)
+                                 ? s.worlds.gameModes[s.worldSelected] : 1;
+                        const char* wn = (s.worldSelected >= 0 && s.worldSelected < s.worlds.count)
+                                         ? s.worlds.displayNames[s.worldSelected] : "Friend World";
+                        g_adhoc.sendHostWorldInfo(wn, worldSeed(), gm, 0, skinOptionGet());
+                    } else if (g_adhoc.isJoiner) {
+                        g_adhoc.sendClientHello(skinOptionGet());
+                    }
                 }
                 if (!g_adhoc.isJoiner && g_adhoc.hasPeer && ++s_mobTick >= 6) {
                     s_mobTick = 0;
@@ -720,24 +732,24 @@ int main(int argc, char* argv[]) {
                     ty += 12.0f;
                 }
                 {
-                    char netBuf;
+                    std::array<char, 64> netBuf{};
                     float ryHud = 6.0f;
                     if (g_level.player) {
-                        std::snprintf(netBuf, sizeof(netBuf), "YOU: %.1f, %.1f, %.1f",
+                        std::snprintf(netBuf.data(), netBuf.size(), "YOU: %.1f, %.1f, %.1f",
                                       g_level.player->x, g_level.player->y, g_level.player->z);
-                        float w1 = fontTextWidth(&s.font, netBuf) * 1.8f;
-                        fontDrawTextShadow(&s.font, 474.0f - w1, ryHud, netBuf, 0xFFFFFFFFu, 1.8f);
+                        float w1 = fontTextWidth(&s.font, netBuf.data()) * 1.8f;
+                        fontDrawTextShadow(&s.font, 474.0f - w1, ryHud, netBuf.data(), 0xFFFFFFFFu, 1.8f);
                         ryHud += 16.0f;
                     }
                     if (g_adhoc.hasPeer) {
-                        std::snprintf(netBuf, sizeof(netBuf), "%s: %.1f, %.1f, %.1f",
+                        std::snprintf(netBuf.data(), netBuf.size(), "%s: %.1f, %.1f, %.1f",
                                       g_adhoc.peerNick.data(), g_adhoc.remoteX, g_adhoc.remoteY, g_adhoc.remoteZ);
-                        float w2 = fontTextWidth(&s.font, netBuf) * 1.8f;
-                        fontDrawTextShadow(&s.font, 474.0f - w2, ryHud, netBuf, 0xFF55FF55u, 1.8f);
+                        float w2 = fontTextWidth(&s.font, netBuf.data()) * 1.8f;
+                        fontDrawTextShadow(&s.font, 474.0f - w2, ryHud, netBuf.data(), 0xFF55FF55u, 1.8f);
                     } else if (g_adhoc.isHosting) {
-                        std::snprintf(netBuf, sizeof(netBuf), "HOSTING (WAITING)");
-                        float w2 = fontTextWidth(&s.font, netBuf) * 1.5f;
-                        fontDrawTextShadow(&s.font, 474.0f - w2, ryHud, netBuf, 0xFF55FF55u, 1.5f);
+                        std::snprintf(netBuf.data(), netBuf.size(), "HOSTING (WAITING)");
+                        float w2 = fontTextWidth(&s.font, netBuf.data()) * 1.5f;
+                        fontDrawTextShadow(&s.font, 474.0f - w2, ryHud, netBuf.data(), 0xFF55FF55u, 1.5f);
                     }
 
                     if (g_adhoc.chatTimer > 0 && g_adhoc.chatMsg.front() != '\0') {
