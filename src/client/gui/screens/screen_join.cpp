@@ -99,6 +99,8 @@ void JoinScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int ) 
                                     g_adhoc.hostType, 0)) {
                     g_adhoc.isJoiner = true;
                     g_adhoc.isHosting = false;
+                    extern const char* skinOptionGet();
+                    g_adhoc.sendClientHello(skinOptionGet(), true);
                     snprintf(s.statusMsg, sizeof(s.statusMsg), "Joining %s...", g_adhoc.peerNick.data());
                     s.worldSelected = s.worlds.count - 1;
                     s.screen = SCREEN_GAME;

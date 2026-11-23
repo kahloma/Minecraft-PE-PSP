@@ -1,4 +1,3 @@
-
 #include <pspctrl.h>
 #include <pspgu.h>
 #include <pspkernel.h>
@@ -16,11 +15,13 @@
 #include "world/entity/item_entity.h"
 #include "world/entity/local_player.h"
 #include "gpu/gui_atlas.h"
+#include "adhoc_bridge.h"
 
 extern Level g_level;
 
 bool g_furnaceOpen = false;
 static FurnaceTileEntity* s_furnace = nullptr;
+static int s_fx, s_fy, s_fz;
 
 static std::vector<int> s_list;
 static int s_cursor = 0;
@@ -78,6 +79,10 @@ static void moveToFurnace(int invSlot, int n) {
     if (src->count <= 0) g_level.player->inventory->clearSlot(invSlot);
     soundPlay("random.click", 1.0f, 1.0f);
     updateItems();
+    for (int fi = 0; fi < 3; fi++) {
+        ItemInstance& fit = s_furnace->items[fi];
+        g_adhoc.sendContainerSlot(s_fx, s_fy, s_fz, fi, fit.isNull() ? 0 : fit.id, fit.data, fit.isNull() ? 0 : fit.count);
+    }
 }
 
 static void takeSlot(int slot, int n = 0) {
@@ -93,6 +98,10 @@ static void takeSlot(int slot, int n = 0) {
     if (it.count <= 0) it.setNull();
     soundPlay("random.click", 1.0f, 1.0f);
     updateItems();
+    for (int fi = 0; fi < 3; fi++) {
+        ItemInstance& fit = s_furnace->items[fi];
+        g_adhoc.sendContainerSlot(s_fx, s_fy, s_fz, fi, fit.isNull() ? 0 : fit.id, fit.data, fit.isNull() ? 0 : fit.count);
+    }
 }
 
 int furnaceTargetSlotForCursor() {
@@ -106,7 +115,6 @@ int furnaceTargetSlotForCursor() {
 }
 bool furnaceFocusIsSlots() { return s_focus != 0; }
 
-static int s_fx, s_fy, s_fz;
 static bool furnaceGone() { return g_level.getTileEntity(s_fx, s_fy, s_fz) != s_furnace; }
 
 void furnaceOpen(FurnaceTileEntity* fe) {

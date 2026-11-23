@@ -61,7 +61,19 @@ static void moveAcross(int n) {
     src->count -= n;
     if (src->count <= 0) paneClear(s_pane, slot);
     soundPlay("random.pop", 0.3f, 1.4f, SND_CAT_UI);
-}
+    int chestSlot = (s_pane == 1) ? slot : -1;
+    if (chestSlot >= 0) {
+        ItemInstance* curIt = s_chest->getItem(chestSlot);
+        if (!curIt || curIt->isNull()) g_adhoc.sendContainerSlot(s_cx, s_cy, s_cz, chestSlot, 0, 0, 0);
+        else g_adhoc.sendContainerSlot(s_cx, s_cy, s_cz, chestSlot, curIt->id, curIt->data, curIt->count);
+    } else {
+        for (int ci = 0; ci < s_chest->getContainerSize(); ci++) {
+            ItemInstance* curIt = s_chest->getItem(ci);
+            if (!curIt || curIt->isNull()) g_adhoc.sendContainerSlot(s_cx, s_cy, s_cz, ci, 0, 0, 0);
+            else g_adhoc.sendContainerSlot(s_cx, s_cy, s_cz, ci, curIt->id, curIt->data, curIt->count);
+        }
+    }
+
 
 static int s_cx, s_cy, s_cz;
 static bool chestGone() { return g_level.getTileEntity(s_cx, s_cy, s_cz) != s_chest; }

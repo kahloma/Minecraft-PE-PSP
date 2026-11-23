@@ -23,6 +23,7 @@ struct NetPacket {
     long seed;
     int gameMode, worldType;
     int entId, entType;
+    int slot;
     uint8_t entRemoved;
     std::array<char, 32> nick;
     std::array<char, 64> skin;
@@ -183,13 +184,26 @@ public:
         sendRaw(pkt, true);
     }
 
-    void sendClientHello(const char* skinStr) {
+    void sendClientHello(const char* skinStr, bool joining = false) {
         NetPacket pkt{};
         pkt.type = 7;
+        pkt.entRemoved = joining ? 1 : 0;
         std::strncpy(pkt.nick.data(), myNick.data(), pkt.nick.size() - 1);
         if (skinStr) std::strncpy(pkt.skin.data(), skinStr, pkt.skin.size() - 1);
         sendRaw(pkt, true);
     }
+
+    void sendContainerSlot(int bx, int by, int bz, int slot, short itemId, unsigned char itemData, int itemCount) {
+        NetPacket pkt{};
+        pkt.type = 8;
+        pkt.bx = bx; pkt.by = by; pkt.bz = bz;
+        pkt.slot = slot;
+        pkt.heldId = itemId;
+        pkt.heldData = itemData;
+        pkt.heldCount = itemCount;
+        sendRaw(pkt, false);
+    }
+
 
     void sendLeave(bool hostClosing) {
         NetPacket pkt{};
@@ -287,15 +301,23 @@ public:
             if (out.type == 7) {
                 if (out.nick.front() != '\0') std::strncpy(peerNick.data(), out.nick.data(), peerNick.size() - 1);
                 if (out.skin.front() != '\0') std::strncpy(peerSkin.data(), out.skin.data(), peerSkin.size() - 1);
-                if (!hasPeer && (isHosting || isJoiner)) {
+                if (isHosting || isJoiner) {
                     std::array<char, 128> buf{};
-                    std::snprintf(buf.data(), buf.size(), "%s joined the game", peerNick.data());
-                    pushChat(buf.data());
+                    if (out.entRemoved == 1) {
+                        std::snprintf(buf.data(), buf.size(), "%s is joining...", peerNick.data());
+                        pushChat(buf.data());
+                    } else if (!hasPeer) {
+                        std::snprintf(buf.data(), buf.size(), "%s joined the game", peerNick.data());
+                        pushChat(buf.data());
+                    }
                 }
-                hasPeer = true;
-                if (isHosting && deltaCount > 0) replayIdx = 0;
+                if (out.entRemoved == 0) {
+                    hasPeer = true;
+                    if (isHosting && deltaCount > 0) replayIdx = 0;
+                }
                 return true;
             }
+
 
             if (out.type == 1) {
                 if (!hasPeer) {
