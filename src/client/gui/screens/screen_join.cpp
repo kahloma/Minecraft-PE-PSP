@@ -86,7 +86,7 @@ void JoinScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int ) 
             if (s.joinBarSel == 0) screen = SCREEN_TITLE;
             else if (s.joinBarSel == 1) { g_adhoc.friendTab = 0; s.joinRow = 0; s.joinScroll = 0.0f; s.joinUiRow = 1; }
             else if (s.joinBarSel == 2) { g_adhoc.friendTab = 1; s.joinRow = 0; s.joinScroll = 0.0f; s.joinUiRow = 1; }
-        } else if (g_adhoc.friendTab == 0) {
+         } else if (g_adhoc.friendTab == 0) {
             if (g_adhoc.hasHostWorld) {
                 for (int i = s.worlds.count - 1; i >= 0; i--) {
                     if (std::strcmp(s.worlds.names[i], "_tmp_adhoc") == 0) {

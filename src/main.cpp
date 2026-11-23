@@ -594,14 +594,6 @@ int main(int argc, char* argv[]) {
 
          unsigned int pMenu = pressed | repeat;
         if (Screen* cur = menuScreen(s.screen)) {
-            if (s.screen == SCREEN_TITLE || s.screen == SCREEN_WORLDS || s.screen == SCREEN_JOIN) {
-                for (int i = s.worlds.count - 1; i >= 0; i--) {
-                    if (std::strcmp(s.worlds.names[i], "_tmp_adhoc") == 0) {
-                        worldListDelete(&s.worlds, i);
-                    }
-                }
-            }
-
             NetPacket menuPkt;
             while (g_adhoc.poll(menuPkt)) { (void)menuPkt; }
 

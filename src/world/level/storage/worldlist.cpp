@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <array>
 
 long worldSeedFromString(const char* str) {
     if (!str || str[0] == '\0')
@@ -238,6 +239,23 @@ bool worldListDelete(WorldList* list, int index) {
         }
         sceIoDclose(d);
     }
+    std::array<char, 320> regDir{};
+    std::snprintf(regDir.data(), regDir.size(), "%s/region", dirFull);
+    SceUID rd = sceIoDopen(regDir.data());
+    if (rd >= 0) {
+        SceIoDirent re;
+        std::memset(&re, 0, sizeof(re));
+        while (sceIoDread(rd, &re) > 0) {
+            if (std::strcmp(re.d_name, ".") != 0 && std::strcmp(re.d_name, "..") != 0) {
+                std::array<char, 640> rf{};
+                std::snprintf(rf.data(), rf.size(), "%s/%s", regDir.data(), re.d_name);
+                sceIoRemove(rf.data());
+            }
+            std::memset(&re, 0, sizeof(re));
+        }
+        sceIoDclose(rd);
+    }
+    sceIoRmdir(regDir.data());
     sceIoRmdir(dirFull);
 
     for (int i = index; i < list->count - 1; i++) {
