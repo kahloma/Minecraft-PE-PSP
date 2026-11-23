@@ -605,11 +605,16 @@ int main(int argc, char* argv[]) {
             gameUpdate(s, inGameMenu ? pMenu
                        : (pressed | (repeat & (PSP_CTRL_LEFT | PSP_CTRL_RIGHT))), pad);
 
-            if (g_level.player && !gameProgressScreenUp()) {
+                        if (g_level.player) {
                 g_level.isClientSide = false;
                 static int s_netTick = 0;
                 static int s_infoTick = 0;
                 static int s_mobTick = 0;
+                bool loading = gameProgressScreenUp();
+                if (loading) {
+                    g_adhoc.ticksSincePeer = 0;
+                    g_adhoc.hostClosedNotice = false;
+                }
                 if (++s_netTick >= 3) {
                     s_netTick = 0;
                     extern float g_attackAnim;
@@ -623,12 +628,12 @@ int main(int argc, char* argv[]) {
                                        g_level.player->walkAnimPos, g_level.player->walkAnimSpeed,
                                        g_attackAnim, g_level.player->sneaking, hid, hdata);
                 }
-                if (g_adhoc.hostClosedNotice) {
+                if (!loading && g_adhoc.hostClosedNotice) {
                     g_adhoc.hostClosedNotice = false;
                     quitToMenuNoSave(s);
+                    worldListScan(&s.worlds);
                     std::snprintf(s.statusMsg, sizeof(s.statusMsg), "Host closed the world");
                 }
-                g_level.isClientSide = false;
                 if (++s_infoTick >= 60) {
                     s_infoTick = 0;
                     if (g_adhoc.isHosting) {
@@ -641,7 +646,7 @@ int main(int argc, char* argv[]) {
                         g_adhoc.sendClientHello(skinOptionGet());
                     }
                 }
-                if (!g_adhoc.isJoiner && g_adhoc.hasPeer && ++s_mobTick >= 6) {
+                if (!loading && !g_adhoc.isJoiner && g_adhoc.hasPeer && ++s_mobTick >= 6) {
                     s_mobTick = 0;
                     for (size_t i = 0; i < g_level.entities.size(); i++) {
                         Entity* e = g_level.entities[i];
@@ -653,6 +658,7 @@ int main(int argc, char* argv[]) {
                 }
                 NetPacket pkt;
                 while (g_adhoc.poll(pkt)) {
+                    if (loading) continue;
                     if (pkt.type == 2 && g_level.w) {
                         g_adhoc.applyingRemote = true;
                         worldSetBlockAndData(g_level.w, pkt.bx, pkt.by, pkt.bz,

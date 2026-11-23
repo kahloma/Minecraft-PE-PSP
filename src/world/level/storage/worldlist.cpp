@@ -44,7 +44,8 @@ void worldListScan(WorldList* out) {
     memset(&entry, 0, sizeof(entry));
     while (sceIoDread(d, &entry) > 0 && out->count < MCPSP_MAX_WORLDS) {
         if (FIO_S_ISDIR(entry.d_stat.st_mode) &&
-            strcmp(entry.d_name, ".") != 0 && strcmp(entry.d_name, "..") != 0) {
+            strcmp(entry.d_name, ".") != 0 && strcmp(entry.d_name, "..") != 0 &&
+            strncmp(entry.d_name, "_tmp_adhoc", 10) != 0) {
             snprintf(out->names[out->count], sizeof(out->names[0]), "%.63s", entry.d_name);
 
             ScePspDateTime* t = &entry.d_stat.sce_st_mtime;
