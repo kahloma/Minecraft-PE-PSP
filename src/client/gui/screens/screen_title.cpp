@@ -13,23 +13,24 @@
 
 #include <cstdio>
 #include <cstring>
+#include <array>
 #include "platform/path.h"
 
-static char s_splash;
+static std::array<char, 128> s_splash{};
 static bool s_splashPicked = false;
 
 static void pickSplash(unsigned seed) {
     s_splashPicked = true;
     FILE* f = fopen(assetPath("data/splashes.txt"), "r");
     if (!f) return;
-    char line;
+    std::array<char, 128> line{};
     unsigned n = 0;
-    while (fgets(line, sizeof(line), f)) {
-        char* e = line + strlen(line);
-        while (e > line && (e[-1] == '\n' || e[-1] == '\r' || e[-1] == ' ')) *--e = '\0';
-        if (line == '\0' || line == '#') continue;
+    while (fgets(line.data(), line.size(), f)) {
+        char* e = line.data() + strlen(line.data());
+        while (e > line.data() && (e[-1] == '\n' || e[-1] == '\r' || e[-1] == ' ')) *--e = '\0';
+        if (line.front() == '\0' || line.front() == '#') continue;
         seed = seed * 1664525u + 1013904223u;
-        if (seed % ++n == 0) strcpy(s_splash, line);
+        if (seed % ++n == 0) strcpy(s_splash.data(), line.data());
     }
     fclose(f);
 }
@@ -57,9 +58,9 @@ enum { BTN_PLAY = 0, BTN_FRIENDS = 1, BTN_SETTINGS = 2, BTN_SKINS = 3, numButton
 static float s_skinRot = 0.0f;
 static const int SKIN_STICK_DZ = 48;
 
-static const unsigned int kTitleSeed = {
+static const std::array<unsigned int, 3> kTitleSeed = {{
     0x0251B8B0u, 0x1360B0C0u, 0x00000275u
-};
+}};
 #define TITLE_SEED_LEN 14
 static int s_seedHold = 0;
 
@@ -75,7 +76,6 @@ void TitleScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int h
 
     int& selected = s.selected;
     AppScreen& screen = s.screen;
-    char (&statusMsg) = s.statusMsg;
     int& optFocus = s.optFocus;
     int& optTabHighlight = s.optTabHighlight;
     int& optItemHighlight = s.optItemHighlight;
@@ -114,17 +114,17 @@ void TitleScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int h
     if (pressed & PSP_CTRL_CROSS) {
         if (selected == BTN_PLAY) {
             screen = SCREEN_WORLDS;
-            statusMsg[0] = '\0';
+            s.statusMsg[0] = '\0';
         } else if (selected == BTN_FRIENDS) {
             joinListReset(s);
             screen = SCREEN_JOIN;
-            statusMsg[0] = '\0';
+            s.statusMsg[0] = '\0';
         } else if (selected == BTN_SETTINGS) {
             optFocus = 1;
             optTabHighlight = optCategory;
             optItemHighlight = 0;
             screen = SCREEN_OPTIONS;
-            statusMsg[0] = '\0';
+            s.statusMsg[0] = '\0';
         } else {
             skinPageOpen();
         }
@@ -154,7 +154,7 @@ void TitleScreen::renderContent(MenuState& s) {
     if (haveFont) {
         if (!s_splashPicked)
             pickSplash((unsigned)time(0) * 2654435761u + sceKernelGetSystemTimeLow());
-        const char* splash = s_splash;
+        const char* splash = s_splash.data();
 
         float t = (float)sceKernelGetSystemTimeLow() * 1e-6f;
         float scale = powf(sinf(t * 3.14f * 2.3f), 4.0f) * 0.06f + 1.3f;
@@ -205,15 +205,15 @@ void TitleScreen::renderContent(MenuState& s) {
         fontDrawTextShadow(&font, 480.0f - cw - 4.0f, 272.0f - 9.0f * UI_SCALE,
                            copyright, WHITE, UI_SCALE);
         if (s_seedHold > 30) {
-            char line;
+            std::array<char, TITLE_SEED_LEN + 1> line{};
             for (int i = 0; i < TITLE_SEED_LEN; i++) {
-                unsigned int v = (kTitleSeed >> (5 * (i % 6))) & 31u;
+                unsigned int v = (kTitleSeed[i / 6] >> (5 * (i % 6))) & 31u;
                 line[i] = v ? (char)(0x40u + v) : ' ';
             }
-            line = '\0';
-            float lw = fontTextWidth(&font, line) * UI_SCALE;
+            line[TITLE_SEED_LEN] = '\0';
+            float lw = fontTextWidth(&font, line.data()) * UI_SCALE;
             fontDrawTextShadow(&font, (480.0f - lw) * 0.5f, 272.0f - 20.0f * UI_SCALE,
-                               line, 0xFF80FFFFu, UI_SCALE);
+                               line.data(), 0xFF80FFFFu, UI_SCALE);
         }
         sceGuEnable(GU_DEPTH_TEST);
     }
