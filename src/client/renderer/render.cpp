@@ -1995,7 +1995,7 @@ void gameRender(MenuState& s) {
             sceGumMatrixMode(GU_VIEW); sceGumStoreMatrix(&viewM);
             sceGumMatrixMode(GU_PROJECTION); sceGumStoreMatrix(&projM);
             sceGumMatrixMode(GU_MODEL);
-            float wx = rx - g_relBaseX, wy = (ry + 0.45f) - g_relBaseY, wz = rz - g_relBaseZ;
+            float wx = rx - g_relBaseX, wy = (ry + 0.85f) - g_relBaseY, wz = rz - g_relBaseZ;
             float vx = viewM.x.x * wx + viewM.y.x * wy + viewM.z.x * wz + viewM.w.x;
             float vy = viewM.x.y * wx + viewM.y.y * wy + viewM.z.y * wz + viewM.w.y;
             float vz = viewM.x.z * wx + viewM.y.z * wy + viewM.z.z * wz + viewM.w.z;

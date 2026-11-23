@@ -44,6 +44,7 @@ public:
     bool isJoiner = false;
     bool hostClosedNotice = false;
     int friendTab = 0;
+    bool pendingHostCreate = false;
 
     bool hasHostWorld = false;
     long hostSeed = 0;

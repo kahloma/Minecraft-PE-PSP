@@ -88,6 +88,11 @@ void JoinScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int ) 
             else if (s.joinBarSel == 2) { g_adhoc.friendTab = 1; s.joinRow = 0; s.joinScroll = 0.0f; s.joinUiRow = 1; }
         } else if (g_adhoc.friendTab == 0) {
             if (g_adhoc.hasHostWorld) {
+                for (int i = s.worlds.count - 1; i >= 0; i--) {
+                    if (std::strcmp(s.worlds.names[i], "_tmp_adhoc") == 0) {
+                        worldListDelete(&s.worlds, i);
+                    }
+                }
                 std::array<char, 64> created{};
                 if (worldListCreate(&s.worlds, "_tmp_adhoc", created.data(),
                                     g_adhoc.hostMode, g_adhoc.hostSeed,
@@ -110,6 +115,7 @@ void JoinScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int ) 
                 s.screen = SCREEN_GAME;
             } else {
                 createFormReset(s);
+                g_adhoc.pendingHostCreate = true;
                 s.screen = SCREEN_CREATE;
             }
         }

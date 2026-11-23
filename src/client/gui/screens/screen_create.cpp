@@ -282,10 +282,20 @@ void CreateScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int 
             if (worldListCreate(&s.worlds, s.newWorldName, created,
                                 effectiveGameMode(s), seed, s.newWorldType,
                                 s.newWorldGenMask)) {
-                snprintf(s.statusMsg, sizeof(s.statusMsg), "Loading: %s", created);
+                if (g_adhoc.pendingHostCreate) {
+                    g_adhoc.pendingHostCreate = false;
+                    g_adhoc.isHosting = true;
+                    g_adhoc.isJoiner = false;
+                    snprintf(s.statusMsg, sizeof(s.statusMsg), "Hosting: %s", created);
+                } else {
+                    g_adhoc.isHosting = false;
+                    g_adhoc.isJoiner = false;
+                    snprintf(s.statusMsg, sizeof(s.statusMsg), "Loading: %s", created);
+                }
                 s.worldSelected = s.worlds.count - 1;
                 s.screen = SCREEN_GAME;
             } else {
+                g_adhoc.pendingHostCreate = false;
                 s.screen = SCREEN_WORLDS;
             }
             s.uiRow = 1;
