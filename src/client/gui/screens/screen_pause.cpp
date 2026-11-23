@@ -55,7 +55,7 @@ int pausePlayerList(const char** outNames, bool* outIsLocal, int max) {
     outNames[0] = pausePlayerName();
     outIsLocal[0] = true;
     if (g_adhoc.hasPeer && max > 1) {
-        outNames[1] = g_adhoc.peerNick;
+        outNames[1] = g_adhoc.peerNick.data();
         outIsLocal[1] = false;
         return 2;
     }

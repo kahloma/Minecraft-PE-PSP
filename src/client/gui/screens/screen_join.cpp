@@ -84,7 +84,7 @@ void JoinScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int ) 
                                     g_adhoc.hostType, 0)) {
                     g_adhoc.isJoiner = true;
                     g_adhoc.isHosting = false;
-                    snprintf(s.statusMsg, sizeof(s.statusMsg), "Joining %s...", g_adhoc.peerNick);
+                    snprintf(s.statusMsg, sizeof(s.statusMsg), "Joining %s...", g_adhoc.peerNick.data());
                     s.worldSelected = s.worlds.count - 1;
                     s.screen = SCREEN_GAME;
                 }
@@ -136,8 +136,8 @@ void JoinScreen::renderContent(MenuState& s) {
         unsigned int titleCol = hovered ? 0xFFA0FFFFu : (g_adhoc.hasHostWorld ? 0xFF55FF55u : 0xFFFFFFFFu);
         char title;
         char sub;
-        if (g_adhoc.hasHostWorld) {
-            snprintf(title, sizeof(title), "%s - %s", g_adhoc.peerNick, g_adhoc.hostWorldName);
+                if (g_adhoc.hasHostWorld) {
+            snprintf(title, sizeof(title), "%s - %s", g_adhoc.peerNick.data(), g_adhoc.hostWorldName.data());
             snprintf(sub, sizeof(sub), "Tap Cross (Z) to Join | Mode: %s | Seed: %ld",
                      g_adhoc.hostMode == 1 ? "Creative" : "Survival", g_adhoc.hostSeed);
         } else {

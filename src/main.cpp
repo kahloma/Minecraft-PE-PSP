@@ -720,54 +720,39 @@ int main(int argc, char* argv[]) {
                     ty += 12.0f;
                 }
                 {
-                    if (ty < 34.0f) ty = 34.0f;
-                    char netBuf[64];
+                    char netBuf;
+                    float ryHud = 6.0f;
                     if (g_level.player) {
                         std::snprintf(netBuf, sizeof(netBuf), "YOU: %.1f, %.1f, %.1f",
                                       g_level.player->x, g_level.player->y, g_level.player->z);
-                        fontDrawTextShadow(&s.font, 10, ty, netBuf, 0xFFFFFFFFu, 1.8f);
-                        ty += 16.0f;
+                        float w1 = fontTextWidth(&s.font, netBuf) * 1.8f;
+                        fontDrawTextShadow(&s.font, 474.0f - w1, ryHud, netBuf, 0xFFFFFFFFu, 1.8f);
+                        ryHud += 16.0f;
                     }
-                    if (!g_adhoc.connected) {
-                        std::snprintf(netBuf, sizeof(netBuf), "ADHOC: ST=%d ERR=0x%X",
-                                      g_adhoc.lastState, (unsigned int)g_adhoc.lastErr);
-                    } else if (!g_adhoc.hasPeer) {
-                        std::snprintf(netBuf, sizeof(netBuf), "ADHOC: READY (NO PEER)");
-                    } else {
+                    if (g_adhoc.hasPeer) {
                         std::snprintf(netBuf, sizeof(netBuf), "%s: %.1f, %.1f, %.1f",
-                                      g_adhoc.peerNick, g_adhoc.remoteX, g_adhoc.remoteY, g_adhoc.remoteZ);
+                                      g_adhoc.peerNick.data(), g_adhoc.remoteX, g_adhoc.remoteY, g_adhoc.remoteZ);
+                        float w2 = fontTextWidth(&s.font, netBuf) * 1.8f;
+                        fontDrawTextShadow(&s.font, 474.0f - w2, ryHud, netBuf, 0xFF55FF55u, 1.8f);
+                    } else if (g_adhoc.isHosting) {
+                        std::snprintf(netBuf, sizeof(netBuf), "HOSTING (WAITING)");
+                        float w2 = fontTextWidth(&s.font, netBuf) * 1.5f;
+                        fontDrawTextShadow(&s.font, 474.0f - w2, ryHud, netBuf, 0xFF55FF55u, 1.5f);
                     }
-                    fontDrawTextShadow(&s.font, 10, ty, netBuf, 0xFF55FF55u, 1.8f);
-                    ty += 16.0f;
 
-                    // Project floating player nameplate above remote player's head
-                    if (g_adhoc.hasPeer && g_level.player) {
-                        float rx = g_adhoc.prevX + (g_adhoc.remoteX - g_adhoc.prevX) * g_adhoc.lerpT;
-                        float ry = g_adhoc.prevY + (g_adhoc.remoteY - g_adhoc.prevY) * g_adhoc.lerpT + 0.55f;
-                        float rz = g_adhoc.prevZ + (g_adhoc.remoteZ - g_adhoc.prevZ) * g_adhoc.lerpT;
-                        float dx = rx - g_level.player->x;
-                        float dy = ry - g_level.player->y;
-                        float dz = rz - g_level.player->z;
-                        const float D2R = 0.0174532925f;
-                        float cy = std::cos(g_level.player->yRot * D2R), sy = std::sin(g_level.player->yRot * D2R);
-                        float cp = std::cos(g_level.player->xRot * D2R), sp = std::sin(g_level.player->xRot * D2R);
-                        float fx = -cp * sy, fy = sp, fz = cp * cy;
-                        float rxv = cy, rzv = sy;
-                        float ux = fy * rzv, uy = fz * rxv - fx * rzv, uz = -fy * rxv;
-                        float camZ = dx * fx + dy * fy + dz * fz;
-                        if (camZ > 0.3f && camZ < 48.0f) {
-                            float camX = dx * rxv + dz * rzv;
-                            float camY = dx * ux + dy * uy + dz * uz;
-                            float fovScale = 1.0f / std::tan(35.0f * D2R);
-                            float sx = 240.0f + (camX / camZ) * fovScale * 136.0f;
-                            float sy2 = 136.0f - (camY / camZ) * fovScale * 136.0f;
-                            if (sx > 0.0f && sx < 480.0f && sy2 > 0.0f && sy2 < 272.0f) {
-                                float tw = fontTextWidth(&s.font, g_adhoc.peerNick) * 1.4f;
-                                fontDrawTextShadow(&s.font, sx - tw * 0.5f, sy2, g_adhoc.peerNick, 0xFF80FFFFu, 1.4f);
-                            }
-                        }
+                    if (g_adhoc.chatTimer > 0 && g_adhoc.chatMsg.front() != '\0') {
+                        if (ty < 36.0f) ty = 36.0f;
+                        fontDrawTextShadow(&s.font, 10, ty, g_adhoc.chatMsg.data(), 0xFF55FFFFu, 1.5f);
+                        ty += 14.0f;
+                    }
+
+                    if (g_adhoc.hasPeer && g_adhoc.tagVisible) {
+                        float tw = fontTextWidth(&s.font, g_adhoc.peerNick.data()) * 1.4f;
+                        fontDrawTextShadow(&s.font, g_adhoc.tagScreenX - tw * 0.5f,
+                                           g_adhoc.tagScreenY, g_adhoc.peerNick.data(), 0xFFFFFFFFu, 1.4f);
                     }
                 }
+
                 {
 #if MCPSP_DIAG
 

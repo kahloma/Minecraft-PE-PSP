@@ -1949,14 +1949,15 @@ void gameRender(MenuState& s) {
         // Swap skin temporarily if peer sent one
         char savedSkin[64] = {0};
         bool swappedSkin = false;
-        if (g_adhoc.peerSkin[0]) {
+        if (g_adhoc.peerSkin.front() != '\0') {
             const char* cur = skinOptionGet();
             if (cur) std::strncpy(savedSkin, cur, sizeof(savedSkin) - 1);
-            if (std::strcmp(savedSkin, g_adhoc.peerSkin) != 0) {
-                skinOptionSet(g_adhoc.peerSkin);
+            if (std::strcmp(savedSkin, g_adhoc.peerSkin.data()) != 0) {
+                skinOptionSet(g_adhoc.peerSkin.data());
                 swappedSkin = true;
             }
         }
+
 
         // Handle both Creative and Survival (even when local selected slot is unlinked/empty)
         Inventory* inv = p->inventory;
