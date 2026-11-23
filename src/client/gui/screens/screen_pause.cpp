@@ -1,4 +1,3 @@
-
 #include <pspctrl.h>
 #include <pspgu.h>
 #include <psputility.h>
@@ -10,33 +9,34 @@
 #include "gpu/sprite.h"
 #include "platform/audio/sound.h"
 #include "gpu/gui_atlas.h"
+#include "adhoc_bridge.h"
 
-bool g_paused        = false;
-int  g_pauseSel      = 0;
-int  g_thirdPerson   = 0;
-bool g_quitConfirm   = false;
+bool g_paused         = false;
+int  g_pauseSel       = 0;
+int  g_thirdPerson    = 0;
+bool g_quitConfirm    = false;
 int  g_quitConfirmSel = 1;
-bool g_optionsOpen   = false;
+bool g_optionsOpen    = false;
 
 static const char* const kPauseButtons[] = {
     "Back to game", "Options", "Save", "Quit to title",
 };
 static const int PAUSE_BUTTONS = (int)(sizeof(kPauseButtons) / sizeof(kPauseButtons[0]));
 
-static const float PAUSE_V2    = VW / 20.0f;
-static const float PAUSE_BTN_W = 8.0f * PAUSE_V2;
-static const float PAUSE_BTN_H = 20.0f;
-static const float PAUSE_PITCH = 25.0f;
-static const float PAUSE_BTN_Y = 24.0f;
+static const float PAUSE_V2     = VW / 20.0f;
+static const float PAUSE_BTN_W  = 8.0f * PAUSE_V2;
+static const float PAUSE_BTN_H  = 20.0f;
+static const float PAUSE_PITCH  = 25.0f;
+static const float PAUSE_BTN_Y  = 24.0f;
 static const float PAUSE_LIST_W = 8.0f * PAUSE_V2;
 static const float PAUSE_LIST_X = VW - PAUSE_LIST_W - PAUSE_V2;
 static const float PAUSE_LIST_Y = VH / 10.0f;
 static const float PAUSE_LIST_H = 8.0f * (VH / 10.0f);
 
-static const float PAUSE_ROW_H   = 15.0f;
-static const float PAUSE_ROW_Y0  = 2.0f;
-static const float PAUSE_NAME_X  = 3.0f;
-static const float PAUSE_NAME_Y  = 4.0f;
+static const float PAUSE_ROW_H  = 15.0f;
+static const float PAUSE_ROW_Y0 = 2.0f;
+static const float PAUSE_NAME_X = 3.0f;
+static const float PAUSE_NAME_Y = 4.0f;
 
 const char* pausePlayerName() {
     static char s_name[64];
@@ -54,8 +54,14 @@ int pausePlayerList(const char** outNames, bool* outIsLocal, int max) {
     if (max <= 0) return 0;
     outNames[0] = pausePlayerName();
     outIsLocal[0] = true;
+    if (g_adhoc.hasPeer && max > 1) {
+        outNames[1] = g_adhoc.peerNick;
+        outIsLocal[1] = false;
+        return 2;
+    }
     return 1;
 }
+
 struct PauseScreen : Screen {
     void renderContent(MenuState& s);
     void handleInput(MenuState& s, unsigned int pressed, unsigned int held);
@@ -72,8 +78,11 @@ void PauseScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int )
         if (pressed & PSP_CTRL_CROSS) {
             soundPlay("random.click", 1.0f, 1.0f);
             g_quitConfirm = false;
-
-            if (g_quitConfirmSel == 0) { quitToMenuNoSave(s); g_paused = false; }
+            if (g_quitConfirmSel == 0) {
+                if (g_adhoc.isHosting || g_adhoc.isJoiner) g_adhoc.sendLeave(g_adhoc.isHosting);
+                quitToMenuNoSave(s);
+                g_paused = false;
+            }
         }
         return;
     }
@@ -93,12 +102,22 @@ void PauseScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int )
         switch (g_pauseSel) {
             case 0: g_paused = false; break;
             case 1:
-
                 g_optionsOpen = true;
                 g_paused = false;
                 break;
-            case 2: g_saveRequested = true; g_paused = false; break;
-            case 3: g_quitConfirm = true; g_quitConfirmSel = 1; break;
+            case 2:
+                if (!g_adhoc.isJoiner) { g_saveRequested = true; g_paused = false; }
+                break;
+            case 3:
+                if (g_adhoc.isJoiner) {
+                    g_adhoc.sendLeave(false);
+                    quitToMenuNoSave(s);
+                    g_paused = false;
+                } else {
+                    g_quitConfirm = true;
+                    g_quitConfirmSel = 1;
+                }
+                break;
         }
     }
     if (pressed & PSP_CTRL_TRIANGLE) {
@@ -141,9 +160,11 @@ void PauseScreen::renderContent(MenuState& s) {
         for (int i = 0; i < PAUSE_BUTTONS; i++) {
             bool hover = (g_pauseSel == i);
             float by = PAUSE_BTN_Y + i * PAUSE_PITCH;
-            guiTButton(s, PAUSE_V2, by, PAUSE_BTN_W, PAUSE_BTN_H, hover);
+            bool active = !(g_adhoc.isJoiner && i == 2);
+            const char* lbl = (g_adhoc.isJoiner && i == 3) ? "Disconnect" : kPauseButtons[i];
+            guiTButton(s, PAUSE_V2, by, PAUSE_BTN_W, PAUSE_BTN_H, hover && active);
             guiTButtonLabel(s, PAUSE_V2, by, PAUSE_BTN_W, PAUSE_BTN_H,
-                            kPauseButtons[i], hover, true);
+                            lbl, hover && active, active);
         }
 
         const unsigned int LIST_EDGE = 0x69000000u;

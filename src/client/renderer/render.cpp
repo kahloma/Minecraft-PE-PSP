@@ -1989,7 +1989,32 @@ void gameRender(MenuState& s) {
         p->sneaking = g_adhoc.remoteSneaking;
 
         playerModelRender(a);
-
+        {
+            ScePspFMatrix4 viewM, projM;
+            sceGumMatrixMode(GU_VIEW); sceGumStoreMatrix(&viewM);
+            sceGumMatrixMode(GU_PROJECTION); sceGumStoreMatrix(&projM);
+            sceGumMatrixMode(GU_MODEL);
+            float wx = rx - g_relBaseX, wy = (ry + 0.45f) - g_relBaseY, wz = rz - g_relBaseZ;
+            float vx = viewM.x.x * wx + viewM.y.x * wy + viewM.z.x * wz + viewM.w.x;
+            float vy = viewM.x.y * wx + viewM.y.y * wy + viewM.z.y * wz + viewM.w.y;
+            float vz = viewM.x.z * wx + viewM.y.z * wy + viewM.z.z * wz + viewM.w.z;
+            float vw = viewM.x.w * wx + viewM.y.w * wy + viewM.z.w * wz + viewM.w.w;
+            float cx = projM.x.x * vx + projM.y.x * vy + projM.z.x * vz + projM.w.x * vw;
+            float cy = projM.x.y * vx + projM.y.y * vy + projM.z.y * vz + projM.w.y * vw;
+            float cw = projM.x.w * vx + projM.y.w * vy + projM.z.w * vz + projM.w.w;
+            if (cw > 0.1f) {
+                float ndcX = cx / cw, ndcY = cy / cw;
+                if (ndcX >= -1.1f && ndcX <= 1.1f && ndcY >= -1.1f && ndcY <= 1.1f) {
+                    g_adhoc.tagScreenX = (ndcX * 0.5f + 0.5f) * 480.0f;
+                    g_adhoc.tagScreenY = (0.5f - ndcY * 0.5f) * 272.0f;
+                    g_adhoc.tagVisible = true;
+                } else {
+                    g_adhoc.tagVisible = false;
+                }
+            } else {
+                g_adhoc.tagVisible = false;
+            }
+        }
         p->x = ox; p->y = oy; p->z = oz;
         p->xo = oxo; p->yo = oyo; p->zo = ozo;
         p->yRot = oyaw; p->xRot = opitch;

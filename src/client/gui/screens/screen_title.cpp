@@ -1,4 +1,3 @@
-
 #include <pspctrl.h>
 #include <pspgu.h>
 
@@ -16,19 +15,19 @@
 #include <cstring>
 #include "platform/path.h"
 
-static char s_splash[128];
+static char s_splash;
 static bool s_splashPicked = false;
 
 static void pickSplash(unsigned seed) {
     s_splashPicked = true;
     FILE* f = fopen(assetPath("data/splashes.txt"), "r");
     if (!f) return;
-    char line[128];
+    char line;
     unsigned n = 0;
     while (fgets(line, sizeof(line), f)) {
         char* e = line + strlen(line);
         while (e > line && (e[-1] == '\n' || e[-1] == '\r' || e[-1] == ' ')) *--e = '\0';
-        if (line[0] == '\0' || line[0] == '#') continue;
+        if (line == '\0' || line == '#') continue;
         seed = seed * 1664525u + 1013904223u;
         if (seed % ++n == 0) strcpy(s_splash, line);
     }
@@ -36,10 +35,11 @@ static void pickSplash(unsigned seed) {
 }
 
 static const float BTN_W = 96.0f;
-static const float BTN_H = 24.0f;
+static const float BTN_H = 21.0f;
 static const float BTN_X = (VW - BTN_W) / 2.0f;
-static const float PLAY_Y = 58.0f;
-static const float SET_Y  = PLAY_Y + BTN_H + 5.0f;
+static const float PLAY_Y    = 52.0f;
+static const float FRIENDS_Y = PLAY_Y + BTN_H + 4.0f;
+static const float SET_Y     = FRIENDS_Y + BTN_H + 4.0f;
 
 static const float SKIN_CX   = (BTN_X + BTN_W + VW) / 2.0f;
 static const float SKIN_TOP  = 44.0f;
@@ -52,13 +52,12 @@ static const float SKINBTN_H = 16.0f;
 static const float SKINBTN_X = SKIN_CX - SKINBTN_W / 2.0f;
 static const float SKINBTN_Y = SKIN_TOP + SKIN_H + 2.0f;
 
-enum { BTN_PLAY = 0, BTN_SETTINGS = 1, BTN_SKINS = 2, numButtons = 3 };
+enum { BTN_PLAY = 0, BTN_FRIENDS = 1, BTN_SETTINGS = 2, BTN_SKINS = 3, numButtons = 4 };
 
 static float s_skinRot = 0.0f;
-
 static const int SKIN_STICK_DZ = 48;
 
-static const unsigned int kTitleSeed[3] = {
+static const unsigned int kTitleSeed = {
     0x0251B8B0u, 0x1360B0C0u, 0x00000275u
 };
 #define TITLE_SEED_LEN 14
@@ -76,7 +75,7 @@ void TitleScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int h
 
     int& selected = s.selected;
     AppScreen& screen = s.screen;
-    char (&statusMsg)[128] = s.statusMsg;
+    char (&statusMsg) = s.statusMsg;
     int& optFocus = s.optFocus;
     int& optTabHighlight = s.optTabHighlight;
     int& optItemHighlight = s.optItemHighlight;
@@ -90,7 +89,6 @@ void TitleScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int h
         if (sceCtrlPeekBufferPositive(&pad, 1) > 0) {
             int dx = (int)pad.Lx - 128;
             if (dx > SKIN_STICK_DZ || dx < -SKIN_STICK_DZ) {
-
                 s_skinRot -= (float)dx * (4.0f / 127.0f);
                 if (s_skinRot >= 360.0f) s_skinRot -= 360.0f;
                 if (s_skinRot < 0.0f)    s_skinRot += 360.0f;
@@ -99,28 +97,34 @@ void TitleScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int h
         }
     }
 
-    if (selected < 0) selected = BTN_PLAY;
-    if (pressed & PSP_CTRL_UP)   selected = (selected == BTN_SETTINGS) ? BTN_PLAY : selected;
-    if (pressed & PSP_CTRL_DOWN) selected = (selected == BTN_PLAY) ? BTN_SETTINGS : selected;
+    if (selected < 0 || selected >= numButtons) selected = BTN_PLAY;
+    if (pressed & PSP_CTRL_UP) {
+        if (selected == BTN_SETTINGS) selected = BTN_FRIENDS;
+        else if (selected == BTN_FRIENDS) selected = BTN_PLAY;
+    }
+    if (pressed & PSP_CTRL_DOWN) {
+        if (selected == BTN_PLAY) selected = BTN_FRIENDS;
+        else if (selected == BTN_FRIENDS) selected = BTN_SETTINGS;
+    }
     if (!stickTurning) {
         if (pressed & PSP_CTRL_RIGHT) selected = BTN_SKINS;
         if (pressed & PSP_CTRL_LEFT)  selected = (selected == BTN_SKINS) ? BTN_PLAY : selected;
     }
-    if (pressed & PSP_CTRL_TRIANGLE) {
-        joinListReset(s);
-        screen = SCREEN_JOIN;
-        statusMsg[0] = '\0';
-    }
+
     if (pressed & PSP_CTRL_CROSS) {
         if (selected == BTN_PLAY) {
             screen = SCREEN_WORLDS;
-            statusMsg[0] = '\0';
+            statusMsg = '\0';
+        } else if (selected == BTN_FRIENDS) {
+            joinListReset(s);
+            screen = SCREEN_JOIN;
+            statusMsg = '\0';
         } else if (selected == BTN_SETTINGS) {
             optFocus = 1;
             optTabHighlight = optCategory;
             optItemHighlight = 0;
             screen = SCREEN_OPTIONS;
-            statusMsg[0] = '\0';
+            statusMsg = '\0';
         } else {
             skinPageOpen();
         }
@@ -134,8 +138,7 @@ void TitleScreen::renderContent(MenuState& s) {
     Texture& logo = s.logo; bool haveLogo = s.haveLogo;
     int& selected = s.selected;
 
-    float logoYV = 6.0f;
-
+    float logoYV = 4.0f;
     float logoWV = (float)logo.realW / UI_SCALE;
     float logoHV = (float)logo.realH / UI_SCALE;
     float logoXV = (VW - logoWV) / 2.0f;
@@ -149,7 +152,6 @@ void TitleScreen::renderContent(MenuState& s) {
     }
 
     if (haveFont) {
-
         if (!s_splashPicked)
             pickSplash((unsigned)time(0) * 2654435761u + sceKernelGetSystemTimeLow());
         const char* splash = s_splash;
@@ -174,6 +176,9 @@ void TitleScreen::renderContent(MenuState& s) {
         guiTButton(s, BTN_X, PLAY_Y, BTN_W, BTN_H, selected == BTN_PLAY);
         guiTButtonLabel(s, BTN_X, PLAY_Y, BTN_W, BTN_H, "Play",
                         selected == BTN_PLAY, true);
+        guiTButton(s, BTN_X, FRIENDS_Y, BTN_W, BTN_H, selected == BTN_FRIENDS);
+        guiTButtonLabel(s, BTN_X, FRIENDS_Y, BTN_W, BTN_H, "Friend Worlds",
+                        selected == BTN_FRIENDS, true);
         guiTButton(s, BTN_X, SET_Y, BTN_W, BTN_H, selected == BTN_SETTINGS);
         guiTButtonLabel(s, BTN_X, SET_Y, BTN_W, BTN_H, "Settings",
                         selected == BTN_SETTINGS, true);
@@ -195,18 +200,17 @@ void TitleScreen::renderContent(MenuState& s) {
 
     if (haveFont) {
         sceGuDisable(GU_DEPTH_TEST);
-
         const char* copyright = "\xffMojang AB";
         float cw = fontTextWidth(&font, copyright) * UI_SCALE;
         fontDrawTextShadow(&font, 480.0f - cw - 4.0f, 272.0f - 9.0f * UI_SCALE,
                            copyright, WHITE, UI_SCALE);
         if (s_seedHold > 30) {
-            char line[TITLE_SEED_LEN + 1];
+            char line;
             for (int i = 0; i < TITLE_SEED_LEN; i++) {
-                unsigned int v = (kTitleSeed[i / 6] >> (5 * (i % 6))) & 31u;
+                unsigned int v = (kTitleSeed >> (5 * (i % 6))) & 31u;
                 line[i] = v ? (char)(0x40u + v) : ' ';
             }
-            line[TITLE_SEED_LEN] = '\0';
+            line = '\0';
             float lw = fontTextWidth(&font, line) * UI_SCALE;
             fontDrawTextShadow(&font, (480.0f - lw) * 0.5f, 272.0f - 20.0f * UI_SCALE,
                                line, 0xFF80FFFFu, UI_SCALE);

@@ -10,8 +10,8 @@
 #include <cstdio>
 
 struct NetPacket {
-    uint8_t type; // 1 = PlayerPos, 2 = BlockSet, 3 = WorldInfo, 4 = ItemDrop, 5 = MobSync
-    uint8_t senderMac[6];
+    uint8_t type; // 1 = PlayerPos, 2 = BlockSet, 3 = HostWorldInfo, 4 = ItemDrop, 5 = MobSync, 6 = Leave/Close, 7 = ClientHello
+    uint8_t senderMac;
     float x, y, z, yaw, pitch;
     float vx, vy, vz;
     float walkPos, walkSpeed, atkAnim;
@@ -24,8 +24,9 @@ struct NetPacket {
     int gameMode, worldType;
     int entId, entType;
     uint8_t entRemoved;
-    char nick[24];
-    char skin[64];
+    char nick;
+    char skin;
+    char worldName;
 };
 
 class AdhocBridge {
@@ -38,16 +39,25 @@ public:
     bool connected = false;
     bool hasPeer = false;
     bool applyingRemote = false;
+
+    bool isHosting = false;
     bool isJoiner = false;
+    bool hostClosedNotice = false;
+    int friendTab = 0; // 0 = Joinable, 1 = Hosting
 
     bool hasHostWorld = false;
     long hostSeed = 0;
     int hostMode = 1;
     int hostType = 0;
+    char hostWorldName = "Friend World";
 
-    char myNick[24] = "Player";
-    char peerNick[24] = "Peer";
-    char peerSkin[64] = "";
+    char myNick = "Player";
+    char peerNick = "Peer";
+    char peerSkin = "";
+
+    char chatMsg = "";
+    int chatTimer = 0;
+    int ticksSincePeer = 0;
 
     float prevX = 0.0f, prevY = 64.0f, prevZ = 0.0f;
     float remoteX = 0.0f, remoteY = 64.0f, remoteZ = 0.0f;
@@ -58,6 +68,14 @@ public:
     short remoteHeldId = 0;
     unsigned char remoteHeldData = 0;
     float lerpT = 1.0f;
+    float tagScreenX = -1000.0f, tagScreenY = -1000.0f;
+    bool tagVisible = false;
+
+    void pushChat(const char* msg) {
+        std::strncpy(chatMsg, msg, sizeof(chatMsg) - 1);
+        chatMsg[sizeof(chatMsg) - 1] = '\0';
+        chatTimer = 240; // 4 seconds at 60 FPS
+    }
 
     void init() {
         int r1 = sceUtilityLoadNetModule(PSP_NET_MODULE_COMMON);
@@ -73,14 +91,15 @@ public:
         if (lastErr == 0) lastErr = r1 ? r1 : (r2 ? r2 : (r3 ? r3 : (r4 ? r4 : r5)));
         sceNetGetLocalEtherAddr(myMac.data());
 
-        char sysNick[64] = {0};
-        if (sceUtilityGetSystemParamString(PSP_SYSTEMPARAM_ID_STRING_NICKNAME, sysNick, sizeof(sysNick)) == 0 && sysNick[0]) {
+        char sysNick = {0};
+        if (sceUtilityGetSystemParamString(PSP_SYSTEMPARAM_ID_STRING_NICKNAME, sysNick, sizeof(sysNick)) == 0 && sysNick) {
             std::strncpy(myNick, sysNick, sizeof(myNick) - 1);
             myNick[sizeof(myNick) - 1] = '\0';
         }
     }
 
     void update() {
+        if (chatTimer > 0) chatTimer--;
         if (!connected) {
             sceNetAdhocctlGetState(&lastState);
             if (lastState == 1) {
@@ -95,6 +114,18 @@ public:
                 }
             }
         }
+        if (hasPeer) {
+            if (++ticksSincePeer > 180) {
+                char buf;
+                std::snprintf(buf, sizeof(buf), "%s left the game", peerNick);
+                pushChat(buf);
+                hasPeer = false;
+                if (isJoiner) {
+                    hasHostWorld = false;
+                    hostClosedNotice = true;
+                }
+            }
+        }
     }
 
     void sendRaw(NetPacket& pkt, bool broadcast = false) {
@@ -105,15 +136,36 @@ public:
         sceNetAdhocPdpSend(pdpId, dst, 0x309, &pkt, sizeof(NetPacket), 0, 1);
     }
 
-    void sendWorldInfo(long seed, int gameMode, int worldType, const char* skinStr) {
+    void sendHostWorldInfo(const char* wName, long seed, int gameMode, int worldType, const char* skinStr) {
         NetPacket pkt{};
         pkt.type = 3;
         pkt.seed = seed;
         pkt.gameMode = gameMode;
         pkt.worldType = worldType;
         std::strncpy(pkt.nick, myNick, sizeof(pkt.nick) - 1);
+        if (wName && wName) std::strncpy(pkt.worldName, wName, sizeof(pkt.worldName) - 1);
         if (skinStr) std::strncpy(pkt.skin, skinStr, sizeof(pkt.skin) - 1);
         sendRaw(pkt, true);
+    }
+
+    void sendClientHello(const char* skinStr) {
+        NetPacket pkt{};
+        pkt.type = 7;
+        std::strncpy(pkt.nick, myNick, sizeof(pkt.nick) - 1);
+        if (skinStr) std::strncpy(pkt.skin, skinStr, sizeof(pkt.skin) - 1);
+        sendRaw(pkt, true);
+    }
+
+    void sendLeave(bool hostClosing) {
+        NetPacket pkt{};
+        pkt.type = 6;
+        pkt.entRemoved = hostClosing ? 1 : 0;
+        std::strncpy(pkt.nick, myNick, sizeof(pkt.nick) - 1);
+        sendRaw(pkt, true);
+        hasPeer = false;
+        isHosting = false;
+        isJoiner = false;
+        hasHostWorld = false;
     }
 
     void sendPlayer(float x, float y, float z, float yaw, float pitch,
@@ -167,9 +219,51 @@ public:
         if (ret == 0 && len == sizeof(NetPacket)) {
             if (std::memcmp(out.senderMac, myMac.data(), 6) == 0) return false;
             peerMac = srcMac;
+            ticksSincePeer = 0;
+
+            if (out.type == 6) {
+                char buf;
+                std::snprintf(buf, sizeof(buf), "%s left the game", out.nick ? out.nick : peerNick);
+                pushChat(buf);
+                hasPeer = false;
+                if (out.entRemoved == 1 && isJoiner) {
+                    hasHostWorld = false;
+                    hostClosedNotice = true;
+                }
+                return true;
+            }
+
+            if (out.type == 3) {
+                hasHostWorld = true;
+                hostSeed = out.seed;
+                hostMode = out.gameMode;
+                hostType = out.worldType;
+                if (out.worldName) std::strncpy(hostWorldName, out.worldName, sizeof(hostWorldName) - 1);
+                if (out.nick) std::strncpy(peerNick, out.nick, sizeof(peerNick) - 1);
+                if (out.skin) std::strncpy(peerSkin, out.skin, sizeof(peerSkin) - 1);
+                return true;
+            }
+
+            if (out.type == 7) {
+                if (out.nick) std::strncpy(peerNick, out.nick, sizeof(peerNick) - 1);
+                if (out.skin) std::strncpy(peerSkin, out.skin, sizeof(peerSkin) - 1);
+                if (!hasPeer && (isHosting || isJoiner)) {
+                    char buf;
+                    std::snprintf(buf, sizeof(buf), "%s joined the game", peerNick);
+                    pushChat(buf);
+                }
+                hasPeer = true;
+                return true;
+            }
+
             if (out.type == 1) {
                 if (!hasPeer) {
                     prevX = out.x; prevY = out.y; prevZ = out.z;
+                    if (isHosting || isJoiner) {
+                        char buf;
+                        std::snprintf(buf, sizeof(buf), "%s joined the game", peerNick);
+                        pushChat(buf);
+                    }
                 } else {
                     prevX = remoteX; prevY = remoteY; prevZ = remoteZ;
                 }
@@ -184,13 +278,6 @@ public:
                 remoteHeldId = out.heldId;
                 remoteHeldData = out.heldData;
                 lerpT = 0.0f;
-            } else if (out.type == 3) {
-                hasHostWorld = true;
-                hostSeed = out.seed;
-                hostMode = out.gameMode;
-                hostType = out.worldType;
-                if (out.nick[0]) std::strncpy(peerNick, out.nick, sizeof(peerNick) - 1);
-                if (out.skin[0]) std::strncpy(peerSkin, out.skin, sizeof(peerSkin) - 1);
             }
             hasPeer = true;
             return true;
