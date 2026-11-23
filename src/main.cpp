@@ -610,11 +610,15 @@ int main(int argc, char* argv[]) {
                 static int s_netTick = 0;
                 static int s_infoTick = 0;
                 static int s_mobTick = 0;
+                static bool s_wasLoading = false;
                 bool loading = gameProgressScreenUp();
                 if (loading) {
                     g_adhoc.ticksSincePeer = 0;
                     g_adhoc.hostClosedNotice = false;
+                } else if (s_wasLoading && g_adhoc.isJoiner) {
+                    g_adhoc.sendClientHello(skinOptionGet());
                 }
+                s_wasLoading = loading;
                 if (++s_netTick >= 3) {
                     s_netTick = 0;
                     extern float g_attackAnim;
@@ -631,6 +635,11 @@ int main(int argc, char* argv[]) {
                 if (!loading && g_adhoc.hostClosedNotice) {
                     g_adhoc.hostClosedNotice = false;
                     quitToMenuNoSave(s);
+                    for (int i = s.worlds.count - 1; i >= 0; i--) {
+                        if (std::strcmp(s.worlds.names[i], "_tmp_adhoc") == 0) {
+                            worldListDelete(&s.worlds, i);
+                        }
+                    }
                     worldListScan(&s.worlds);
                     std::snprintf(s.statusMsg, sizeof(s.statusMsg), "Host closed the world");
                 }

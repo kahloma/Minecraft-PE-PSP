@@ -72,6 +72,31 @@ public:
     float tagScreenX = -1000.0f, tagScreenY = -1000.0f;
     bool tagVisible = false;
 
+    struct BlockDelta {
+        int bx, by, bz, blockId, meta;
+    };
+    static constexpr int MAX_DELTAS = 512;
+    std::array<BlockDelta, MAX_DELTAS> deltas{};
+    int deltaCount = 0;
+    int replayIdx = -1;
+
+    void recordDelta(int bx, int by, int bz, int blockId, int meta) {
+        if (!isHosting) return;
+        for (int i = 0; i < deltaCount; i++) {
+            if (deltas.at(i).bx == bx && deltas.at(i).by == by && deltas.at(i).bz == bz) {
+                deltas.at(i).blockId = blockId;
+                deltas.at(i).meta = meta;
+                return;
+            }
+        }
+        if (deltaCount < MAX_DELTAS) {
+            deltas.at(deltaCount++) = {bx, by, bz, blockId, meta};
+        } else {
+            for (int i = 1; i < MAX_DELTAS; i++) deltas.at(i - 1) = deltas.at(i);
+            deltas.at(MAX_DELTAS - 1) = {bx, by, bz, blockId, meta};
+        }
+    }
+
     void pushChat(const char* msg) {
         std::strncpy(chatMsg.data(), msg, chatMsg.size() - 1);
         chatMsg.back() = '\0';
@@ -114,6 +139,15 @@ public:
                     lastErr = sceNetAdhocctlConnect("MCPEPSP1");
                 }
             }
+        }
+        if (hasPeer && isHosting && replayIdx >= 0 && replayIdx < deltaCount) {
+            int sent = 0;
+            while (replayIdx < deltaCount && sent < 12) {
+                const BlockDelta& d = deltas.at(replayIdx++);
+                sendBlock(d.bx, d.by, d.bz, d.blockId, d.meta);
+                sent++;
+            }
+            if (replayIdx >= deltaCount) replayIdx = -1;
         }
         if (hasPeer) {
             if (++ticksSincePeer > 180) {
@@ -167,6 +201,8 @@ public:
         isHosting = false;
         isJoiner = false;
         hasHostWorld = false;
+        deltaCount = 0;
+        replayIdx = -1;
     }
 
     void sendPlayer(float x, float y, float z, float yaw, float pitch,
@@ -183,12 +219,14 @@ public:
     }
 
     void sendBlock(int bx, int by, int bz, int blockId, int meta = 0) {
+        recordDelta(bx, by, bz, blockId, meta);
         NetPacket pkt{};
         pkt.type = 2;
         pkt.bx = bx; pkt.by = by; pkt.bz = bz;
         pkt.blockId = blockId; pkt.meta = meta;
         sendRaw(pkt, false);
     }
+
 
     void sendItemDrop(float x, float y, float z, float vx, float vy, float vz,
                       short id, unsigned char data, int count) {
@@ -255,6 +293,7 @@ public:
                     pushChat(buf.data());
                 }
                 hasPeer = true;
+                if (isHosting && deltaCount > 0) replayIdx = 0;
                 return true;
             }
 
