@@ -592,26 +592,29 @@ int main(int argc, char* argv[]) {
         unsigned int sigBefore = menuSelectionSig(s);
         AppScreen screenBefore = s.screen;
 
-        unsigned int pMenu = pressed | repeat;
+         unsigned int pMenu = pressed | repeat;
         if (Screen* cur = menuScreen(s.screen)) {
-            for (int i = s.worlds.count - 1; i >= 0; i--) {
-                if (std::strcmp(s.worlds.names[i], "_tmp_adhoc") == 0) {
-                    worldListDelete(&s.worlds, i);
+            if (s.screen != SCREEN_GEN) {
+                for (int i = s.worlds.count - 1; i >= 0; i--) {
+                    if (std::strcmp(s.worlds.names[i], "_tmp_adhoc") == 0) {
+                        worldListDelete(&s.worlds, i);
+                    }
                 }
             }
 
             NetPacket menuPkt;
             while (g_adhoc.poll(menuPkt)) { (void)menuPkt; }
-            
+
             cur->handleInput(s, menuFaceSwap(controlSchemeMenuAlias(pMenu)),
                              menuFaceSwap(controlSchemeMenuAlias(pad.Buttons)));
         } else {
+
 
             gameUpdate(s, inGameMenu ? pMenu
                        : (pressed | (repeat & (PSP_CTRL_LEFT | PSP_CTRL_RIGHT))), pad);
 
             if (g_level.player) {
-                g_level.isClientSide = g_adhoc.isJoiner;
+                g_level.isClientSide = false;
                 static int s_netTick = 0;
                 static int s_infoTick = 0;
                 static int s_mobTick = 0;
@@ -633,7 +636,7 @@ int main(int argc, char* argv[]) {
                     quitToMenuNoSave(s);
                     std::snprintf(s.statusMsg, sizeof(s.statusMsg), "Host closed the world");
                 }
-                g_level.isClientSide = g_adhoc.isJoiner;
+                g_level.isClientSide = false;
                 if (++s_infoTick >= 60) {
                     s_infoTick = 0;
                     if (g_adhoc.isHosting) {
