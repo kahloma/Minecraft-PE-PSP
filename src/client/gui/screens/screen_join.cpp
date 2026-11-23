@@ -77,6 +77,7 @@ void JoinScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int ) 
                 if (worldListCreate(&s.worlds, "AdHoc_World", created,
                                     g_adhoc.hostMode, g_adhoc.hostSeed,
                                     g_adhoc.hostType, 0)) {
+                    g_adhoc.isJoiner = true;
                     snprintf(s.statusMsg, sizeof(s.statusMsg), "Joining Ad-Hoc World...");
                     s.worldSelected = s.worlds.count - 1;
                     s.screen = SCREEN_GAME;

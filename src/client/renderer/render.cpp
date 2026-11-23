@@ -1925,7 +1925,7 @@ void gameRender(MenuState& s) {
     sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);
     profBegin(PROF_ENTITY);
     EntityRenderDispatcher::getInstance()->renderAll(&g_level, a);
-        if (g_adhoc.hasPeer && g_level.player) {
+     if (g_adhoc.hasPeer && g_level.player) {
         if (g_adhoc.lerpT < 1.0f) {
             g_adhoc.lerpT += 0.34f;
             if (g_adhoc.lerpT > 1.0f) g_adhoc.lerpT = 1.0f;
@@ -1946,10 +1946,34 @@ void gameRender(MenuState& s) {
         float oatk = g_attackAnim, oatko = g_oAttackAnim;
         bool osneak = p->sneaking;
 
-        ItemInstance* sel = p->inventory ? p->inventory->getSelected() : 0;
-        short oId = sel ? sel->id : 0;
-        unsigned char oData = sel ? sel->data : 0;
-        int oCount = sel ? sel->count : 0;
+        // Swap skin temporarily if peer sent one
+        char savedSkin[64] = {0};
+        bool swappedSkin = false;
+        if (g_adhoc.peerSkin[0]) {
+            const char* cur = skinOptionGet();
+            if (cur) std::strncpy(savedSkin, cur, sizeof(savedSkin) - 1);
+            if (std::strcmp(savedSkin, g_adhoc.peerSkin) != 0) {
+                skinOptionSet(g_adhoc.peerSkin);
+                swappedSkin = true;
+            }
+        }
+
+        // Handle both Creative and Survival (even when local selected slot is unlinked/empty)
+        Inventory* inv = p->inventory;
+        int savedSel = inv ? inv->selected : 0;
+        ItemInstance* slot0 = inv ? inv->getItem(inv->firstGridSlot()) : 0;
+        ItemInstance savedItem;
+        int savedLink = inv ? inv->getLinkedSlotForItem(0) : -1;
+        if (inv && slot0) {
+            savedItem = *slot0;
+            inv->selectSlot(0);
+            inv->linkSlot(0, inv->firstGridSlot());
+            if (g_adhoc.remoteHeldId > 0) {
+                *slot0 = ItemInstance(g_adhoc.remoteHeldId, 1, g_adhoc.remoteHeldData);
+            } else {
+                *slot0 = ItemInstance();
+            }
+        }
 
         p->x = p->xo = rx;
         p->y = p->yo = ry;
@@ -1963,11 +1987,6 @@ void gameRender(MenuState& s) {
         g_attackAnim = g_adhoc.remoteAtk;
         g_oAttackAnim = g_adhoc.remoteAtkO;
         p->sneaking = g_adhoc.remoteSneaking;
-        if (sel) {
-            sel->id = g_adhoc.remoteHeldId;
-            sel->data = g_adhoc.remoteHeldData;
-            sel->count = (g_adhoc.remoteHeldId > 0) ? 1 : 0;
-        }
 
         playerModelRender(a);
 
@@ -1979,7 +1998,15 @@ void gameRender(MenuState& s) {
         p->walkAnimPos = owp; p->walkAnimSpeed = ows; p->walkAnimSpeedO = owso;
         g_attackAnim = oatk; g_oAttackAnim = oatko;
         p->sneaking = osneak;
-        if (sel) { sel->id = oId; sel->data = oData; sel->count = oCount; }
+
+        if (inv && slot0) {
+            *slot0 = savedItem;
+            if (savedLink >= 0) inv->linkSlot(0, savedLink);
+            inv->selectSlot(savedSel);
+        }
+        if (swappedSkin) {
+            skinOptionSet(savedSkin);
+        }
     }
     renderAllTileEntities(&g_level, a);
 

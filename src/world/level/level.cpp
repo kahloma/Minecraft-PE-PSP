@@ -14,6 +14,9 @@
 #include "world/level/tile/entity/tile_entity_factory.h"
 #include "platform/audio/sound.h"
 #include "util/mth.h"
+#include "world/entity/item_entity.h"
+#include "adhoc_bridge.h"
+
 
 Level::Level(World* world) : w(world), player(0), isClientSide(false),
                              spawnX(WORLD_W / 2), spawnY(64), spawnZ(WORLD_D / 2),
@@ -330,6 +333,11 @@ int Level::getTopSolidBlock(int x, int z) const {
 void Level::addEntity(Entity* e) {
     entities.push_back(e);
     linkEntity(e);
+    if (e && e->isItemEntity() && !g_adhoc.applyingRemote) {
+        ItemEntity* ie = (ItemEntity*)e;
+        g_adhoc.sendItemDrop(ie->x, ie->y, ie->z, ie->xd, ie->yd, ie->zd,
+                             ie->item.id, ie->item.data, ie->item.count);
+    }
 }
 
 static const int SPAWN_INTERVAL = 2;

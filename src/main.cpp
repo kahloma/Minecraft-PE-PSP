@@ -44,6 +44,12 @@
 #include <pspgu.h>
 #include <pspgum.h>
 #include "adhoc_bridge.h"
+#include "world/entity/item_entity.h"
+#include "world/entity/mob.h"
+#include "world/entity/mob_factory.h"
+#include "client/skin/skin_pack.h"
+#include <cmath>
+
 AdhocBridge g_adhoc;
 
 SceInt64 g_timeBootUs = 0;
@@ -595,8 +601,10 @@ int main(int argc, char* argv[]) {
                        : (pressed | (repeat & (PSP_CTRL_LEFT | PSP_CTRL_RIGHT))), pad);
 
             if (g_level.player) {
+                g_level.isClientSide = g_adhoc.isJoiner;
                 static int s_netTick = 0;
                 static int s_infoTick = 0;
+                static int s_mobTick = 0;
                 if (++s_netTick >= 3) {
                     s_netTick = 0;
                     extern float g_attackAnim;
@@ -614,7 +622,17 @@ int main(int argc, char* argv[]) {
                     s_infoTick = 0;
                     int gm = (s.worldSelected >= 0 && s.worldSelected < s.worlds.count)
                              ? s.worlds.gameModes[s.worldSelected] : 1;
-                    g_adhoc.sendWorldInfo(worldSeed(), gm, 0);
+                    g_adhoc.sendWorldInfo(worldSeed(), gm, 0, skinOptionGet());
+                }
+                if (!g_adhoc.isJoiner && g_adhoc.hasPeer && ++s_mobTick >= 6) {
+                    s_mobTick = 0;
+                    for (size_t i = 0; i < g_level.entities.size(); i++) {
+                        Entity* e = g_level.entities[i];
+                        if (e && e->isMob()) {
+                            g_adhoc.sendMobSync(e->entityId, e->getEntityTypeId(),
+                                                e->x, e->y, e->z, e->yRot, e->xRot, e->removed);
+                        }
+                    }
                 }
                 NetPacket pkt;
                 while (g_adhoc.poll(pkt)) {
@@ -624,6 +642,33 @@ int main(int argc, char* argv[]) {
                                              (unsigned char)pkt.blockId, (unsigned char)pkt.meta);
                         worldRebuildAroundNow(g_level.w, pkt.bx, pkt.by, pkt.bz);
                         g_adhoc.applyingRemote = false;
+                    } else if (pkt.type == 4 && pkt.heldId > 0) {
+                        g_adhoc.applyingRemote = true;
+                        ItemEntity* ie = new ItemEntity(&g_level, pkt.x, pkt.y, pkt.z,
+                                                        ItemInstance(pkt.heldId, pkt.heldCount > 0 ? pkt.heldCount : 1, pkt.heldData));
+                        if (ie) {
+                            ie->xd = pkt.vx; ie->yd = pkt.vy; ie->zd = pkt.vz;
+                            g_level.addEntity(ie);
+                        }
+                        g_adhoc.applyingRemote = false;
+                    } else if (pkt.type == 5 && g_adhoc.isJoiner) {
+                        Entity* found = 0;
+                        for (size_t i = 0; i < g_level.entities.size(); i++) {
+                            Entity* e = g_level.entities[i];
+                            if (e && e->isMob() && e->entityId == pkt.entId) { found = e; break; }
+                        }
+                        if (pkt.entRemoved) {
+                            if (found) found->remove();
+                        } else if (found) {
+                            found->lerpTo(pkt.x, pkt.y, pkt.z, pkt.yaw, pkt.pitch, 3);
+                        } else {
+                            Mob* m = MobFactory::createMob(pkt.entType, &g_level);
+                            if (m) {
+                                m->entityId = pkt.entId;
+                                m->moveTo(pkt.x, pkt.y, pkt.z, pkt.yaw, pkt.pitch);
+                                g_level.addEntity(m);
+                            }
+                        }
                     }
                 }
             }
@@ -675,18 +720,53 @@ int main(int argc, char* argv[]) {
                     ty += 12.0f;
                 }
                 {
+                    if (ty < 34.0f) ty = 34.0f;
                     char netBuf[64];
+                    if (g_level.player) {
+                        std::snprintf(netBuf, sizeof(netBuf), "YOU: %.1f, %.1f, %.1f",
+                                      g_level.player->x, g_level.player->y, g_level.player->z);
+                        fontDrawTextShadow(&s.font, 10, ty, netBuf, 0xFFFFFFFFu, 1.8f);
+                        ty += 16.0f;
+                    }
                     if (!g_adhoc.connected) {
                         std::snprintf(netBuf, sizeof(netBuf), "ADHOC: ST=%d ERR=0x%X",
                                       g_adhoc.lastState, (unsigned int)g_adhoc.lastErr);
                     } else if (!g_adhoc.hasPeer) {
                         std::snprintf(netBuf, sizeof(netBuf), "ADHOC: READY (NO PEER)");
                     } else {
-                        std::snprintf(netBuf, sizeof(netBuf), "PEER: %.1f, %.1f, %.1f",
-                                      g_adhoc.remoteX, g_adhoc.remoteY, g_adhoc.remoteZ);
+                        std::snprintf(netBuf, sizeof(netBuf), "%s: %.1f, %.1f, %.1f",
+                                      g_adhoc.peerNick, g_adhoc.remoteX, g_adhoc.remoteY, g_adhoc.remoteZ);
                     }
-                    fontDrawTextShadow(&s.font, 10, ty, netBuf, 0xFF55FF55u, 1.0f);
-                    ty += 12.0f;
+                    fontDrawTextShadow(&s.font, 10, ty, netBuf, 0xFF55FF55u, 1.8f);
+                    ty += 16.0f;
+
+                    // Project floating player nameplate above remote player's head
+                    if (g_adhoc.hasPeer && g_level.player) {
+                        float rx = g_adhoc.prevX + (g_adhoc.remoteX - g_adhoc.prevX) * g_adhoc.lerpT;
+                        float ry = g_adhoc.prevY + (g_adhoc.remoteY - g_adhoc.prevY) * g_adhoc.lerpT + 0.55f;
+                        float rz = g_adhoc.prevZ + (g_adhoc.remoteZ - g_adhoc.prevZ) * g_adhoc.lerpT;
+                        float dx = rx - g_level.player->x;
+                        float dy = ry - g_level.player->y;
+                        float dz = rz - g_level.player->z;
+                        const float D2R = 0.0174532925f;
+                        float cy = std::cos(g_level.player->yRot * D2R), sy = std::sin(g_level.player->yRot * D2R);
+                        float cp = std::cos(g_level.player->xRot * D2R), sp = std::sin(g_level.player->xRot * D2R);
+                        float fx = -cp * sy, fy = sp, fz = cp * cy;
+                        float rxv = cy, rzv = sy;
+                        float ux = fy * rzv, uy = fz * rxv - fx * rzv, uz = -fy * rxv;
+                        float camZ = dx * fx + dy * fy + dz * fz;
+                        if (camZ > 0.3f && camZ < 48.0f) {
+                            float camX = dx * rxv + dz * rzv;
+                            float camY = dx * ux + dy * uy + dz * uz;
+                            float fovScale = 1.0f / std::tan(35.0f * D2R);
+                            float sx = 240.0f + (camX / camZ) * fovScale * 136.0f;
+                            float sy2 = 136.0f - (camY / camZ) * fovScale * 136.0f;
+                            if (sx > 0.0f && sx < 480.0f && sy2 > 0.0f && sy2 < 272.0f) {
+                                float tw = fontTextWidth(&s.font, g_adhoc.peerNick) * 1.4f;
+                                fontDrawTextShadow(&s.font, sx - tw * 0.5f, sy2, g_adhoc.peerNick, 0xFF80FFFFu, 1.4f);
+                            }
+                        }
+                    }
                 }
                 {
 #if MCPSP_DIAG
