@@ -1,4 +1,4 @@
-
+#include "adhoc_bridge.h"
 #include "world/entity/local_player.h"
 #include <pspctrl.h>
 #include <pspgu.h>
@@ -20,6 +20,7 @@ extern Level g_level;
 
 bool g_chestOpen = false;
 static ChestTileEntity* s_chest = nullptr;
+static int s_cx, s_cy, s_cz;
 
 static int s_pane = 0;
 static int s_cursor[2] = { 0, 0 };
@@ -44,7 +45,6 @@ static bool paneAdd(int pane, ItemInstance& it) {
 bool chestCursorOnChest() { return s_pane == 1; }
 
 static void moveAcross(int n) {
-
     if (g_level.player->inventory->isCreative()) return;
     int slot = s_cursor[s_pane];
     ItemInstance* src = paneItem(s_pane, slot);
@@ -54,29 +54,21 @@ static void moveAcross(int n) {
     ItemInstance taken(src->id, (short)n, src->data);
     short before = taken.count;
     if (!paneAdd(1 - s_pane, taken)) {
-
         n = before - taken.count;
     }
     if (n <= 0) return;
     src->count -= n;
     if (src->count <= 0) paneClear(s_pane, slot);
     soundPlay("random.pop", 0.3f, 1.4f, SND_CAT_UI);
-    int chestSlot = (s_pane == 1) ? slot : -1;
-    if (chestSlot >= 0) {
-        ItemInstance* curIt = s_chest->getItem(chestSlot);
-        if (!curIt || curIt->isNull()) g_adhoc.sendContainerSlot(s_cx, s_cy, s_cz, chestSlot, 0, 0, 0);
-        else g_adhoc.sendContainerSlot(s_cx, s_cy, s_cz, chestSlot, curIt->id, curIt->data, curIt->count);
-    } else {
-        for (int ci = 0; ci < s_chest->getContainerSize(); ci++) {
-            ItemInstance* curIt = s_chest->getItem(ci);
-            if (!curIt || curIt->isNull()) g_adhoc.sendContainerSlot(s_cx, s_cy, s_cz, ci, 0, 0, 0);
-            else g_adhoc.sendContainerSlot(s_cx, s_cy, s_cz, ci, curIt->id, curIt->data, curIt->count);
-        }
+    for (int ci = 0; ci < s_chest->getContainerSize(); ci++) {
+        ItemInstance* curIt = s_chest->getItem(ci);
+        if (!curIt || curIt->isNull()) g_adhoc.sendContainerSlot(s_cx, s_cy, s_cz, ci, 0, 0, 0);
+        else g_adhoc.sendContainerSlot(s_cx, s_cy, s_cz, ci, curIt->id, curIt->data, curIt->count);
     }
+}
 
-
-static int s_cx, s_cy, s_cz;
 static bool chestGone() { return g_level.getTileEntity(s_cx, s_cy, s_cz) != s_chest; }
+
 
 void chestOpen(ChestTileEntity* ce) {
     s_chest = ce;
