@@ -2,6 +2,7 @@
 #include <pspgu.h>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "client/gui/screens/menu.h"
 #include "client/gui/screens/screen.h"
@@ -21,13 +22,22 @@ static float panelY() { return MENU_BAR_H + 6.0f; }
 static const float PANEL_W = VW - 20.0f;
 static float panelH() { return (UI_HINTS_Y / UI_SCALE - 4.5f) - 3.0f - panelY(); }
 
-static const char* kBarLabels = { "Back", "Joinable", "Hosting" };
+static const char* kBarLabel0 = "Back";
+static const char* kBarLabel1 = "Joinable";
+static const char* kBarLabel2 = "Hosting";
+
+static const char* getBarLabel(int i) {
+    if (i == 0) return kBarLabel0;
+    if (i == 1) return kBarLabel1;
+    return kBarLabel2;
+}
+
 static float barButtonX(MenuState& s, int i) {
     if (i == 0) return 4.0f * MENU_PX;
-    float hostW = menuBarButtonW(s, kBarLabels);
+    float hostW = menuBarButtonW(s, kBarLabel2);
     float hostX = VW - hostW - 4.0f * MENU_PX;
     if (i == 2) return hostX;
-    return hostX - menuBarButtonW(s, kBarLabels) - 4.0f * MENU_PX;
+    return hostX - menuBarButtonW(s, kBarLabel1) - 4.0f * MENU_PX;
 }
 
 void joinListReset(MenuState& s) {
@@ -78,8 +88,8 @@ void JoinScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int ) 
             else if (s.joinBarSel == 2) { g_adhoc.friendTab = 1; s.joinRow = 0; s.joinScroll = 0.0f; s.joinUiRow = 1; }
         } else if (g_adhoc.friendTab == 0) {
             if (g_adhoc.hasHostWorld) {
-                char created;
-                if (worldListCreate(&s.worlds, "_tmp_adhoc", created,
+                std::array<char, 64> created{};
+                if (worldListCreate(&s.worlds, "_tmp_adhoc", created.data(),
                                     g_adhoc.hostMode, g_adhoc.hostSeed,
                                     g_adhoc.hostType, 0)) {
                     g_adhoc.isJoiner = true;
@@ -134,20 +144,20 @@ void JoinScreen::renderContent(MenuState& s) {
         bool hovered = (s.joinUiRow == 1 && s.joinRow == 0);
         guiTButton(s, PANEL_X, rY, PANEL_W, ROW_H, hovered, MENU_BEVEL);
         unsigned int titleCol = hovered ? 0xFFA0FFFFu : (g_adhoc.hasHostWorld ? 0xFF55FF55u : 0xFFFFFFFFu);
-        char title;
-        char sub;
-                if (g_adhoc.hasHostWorld) {
-            snprintf(title, sizeof(title), "%s - %s", g_adhoc.peerNick.data(), g_adhoc.hostWorldName.data());
-            snprintf(sub, sizeof(sub), "Tap Cross (Z) to Join | Mode: %s | Seed: %ld",
+        std::array<char, 128> title{};
+        std::array<char, 128> sub{};
+        if (g_adhoc.hasHostWorld) {
+            snprintf(title.data(), title.size(), "%s - %s", g_adhoc.peerNick.data(), g_adhoc.hostWorldName.data());
+            snprintf(sub.data(), sub.size(), "Tap Cross (Z) to Join | Mode: %s | Seed: %ld",
                      g_adhoc.hostMode == 1 ? "Creative" : "Survival", g_adhoc.hostSeed);
         } else {
-            snprintf(title, sizeof(title), "No Joinable Friend Worlds Found");
-            snprintf(sub, sizeof(sub), "Have a friend select 'Hosting' tab to start a session");
+            snprintf(title.data(), title.size(), "No Joinable Friend Worlds Found");
+            snprintf(sub.data(), sub.size(), "Have a friend select 'Hosting' tab to start a session");
         }
         fontDrawTextClipped(&s.font, (PANEL_X + 5.0f) * UI_SCALE, (rY + 5.0f) * UI_SCALE,
-                            title, titleCol, UI_SCALE, PANEL_W - 10.0f);
+                            title.data(), titleCol, UI_SCALE, PANEL_W - 10.0f);
         fontDrawTextClipped(&s.font, (PANEL_X + 5.0f) * UI_SCALE, (rY + 16.0f) * UI_SCALE,
-                            sub, 0xFFBBBBBBu, UI_SCALE, PANEL_W - 10.0f);
+                            sub.data(), 0xFFBBBBBBu, UI_SCALE, PANEL_W - 10.0f);
     } else {
         if (s.worlds.count == 0) {
             float rY = pY - scroll;
@@ -164,11 +174,11 @@ void JoinScreen::renderContent(MenuState& s) {
                 unsigned int nameCol = hovered ? 0xFFA0FFFFu : 0xFFFFFFFFu;
                 fontDrawTextClipped(&s.font, (PANEL_X + 5.0f) * UI_SCALE, (rY + 5.0f) * UI_SCALE,
                                     s.worlds.displayNames[i], nameCol, UI_SCALE, PANEL_W - 10.0f);
-                char sub;
-                snprintf(sub, sizeof(sub), "Host via Ad-Hoc | %s",
+                std::array<char, 128> sub{};
+                snprintf(sub.data(), sub.size(), "Host via Ad-Hoc | %s",
                          s.worlds.gameModes[i] == 1 ? "Creative" : "Survival");
                 fontDrawTextClipped(&s.font, (PANEL_X + 5.0f) * UI_SCALE, (rY + 16.0f) * UI_SCALE,
-                                    sub, 0xFF55FF55u, UI_SCALE, PANEL_W - 10.0f);
+                                    sub.data(), 0xFF55FF55u, UI_SCALE, PANEL_W - 10.0f);
             }
         }
     }
@@ -178,14 +188,15 @@ void JoinScreen::renderContent(MenuState& s) {
                  pH * UI_SCALE, contentH * UI_SCALE, scroll * UI_SCALE);
 
     {
-        float lb = 4.0f * MENU_PX + menuBarButtonW(s, kBarLabels);
+        float lb = 4.0f * MENU_PX + menuBarButtonW(s, kBarLabel0);
         float rb = barButtonX(s, 1);
         drawMenuHeader(s, "Friend Worlds", 0.0f, VW, MENU_BAR_H, MENU_BAR_TEXT, lb, rb - lb);
     }
     for (int i = 0; i < 3; i++) {
         bool tabActive = (i == 1 && g_adhoc.friendTab == 0) || (i == 2 && g_adhoc.friendTab == 1);
         bool on = (s.joinUiRow == 0 && s.joinBarSel == i) || tabActive;
-        menuBarButton(s, barButtonX(s, i), menuBarButtonW(s, kBarLabels[i]), kBarLabels[i], on);
+        const char* lbl = getBarLabel(i);
+        menuBarButton(s, barButtonX(s, i), menuBarButtonW(s, lbl), lbl, on);
     }
 
     sceGuEnable(GU_DEPTH_TEST);

@@ -62,6 +62,7 @@ int pausePlayerList(const char** outNames, bool* outIsLocal, int max) {
     return 1;
 }
 
+
 struct PauseScreen : Screen {
     void renderContent(MenuState& s);
     void handleInput(MenuState& s, unsigned int pressed, unsigned int held);

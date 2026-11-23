@@ -114,17 +114,17 @@ void TitleScreen::handleInput(MenuState& s, unsigned int pressed, unsigned int h
     if (pressed & PSP_CTRL_CROSS) {
         if (selected == BTN_PLAY) {
             screen = SCREEN_WORLDS;
-            statusMsg = '\0';
+            statusMsg[0] = '\0';
         } else if (selected == BTN_FRIENDS) {
             joinListReset(s);
             screen = SCREEN_JOIN;
-            statusMsg = '\0';
+            statusMsg[0] = '\0';
         } else if (selected == BTN_SETTINGS) {
             optFocus = 1;
             optTabHighlight = optCategory;
             optItemHighlight = 0;
             screen = SCREEN_OPTIONS;
-            statusMsg = '\0';
+            statusMsg[0] = '\0';
         } else {
             skinPageOpen();
         }
